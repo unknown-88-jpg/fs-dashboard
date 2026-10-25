@@ -1,6 +1,6 @@
 # Dashboard Keuangan (Google Sheets → Vercel)
 
-Dashboard Next.js yang baca langsung sheet **PL, BS, CF, AR, AP** dari dua spreadsheet:
+Dashboard Next.js yang baca (lewat Apps Script) sheet **PL, BS, CF, AR, AP** dari dua spreadsheet:
 
 - PT Fuku Aksa Arta (`FUKU_SHEET_ID`)
 - PT Hita Loka Manava (`HITALOKA_SHEET_ID`)
@@ -9,36 +9,36 @@ Data selalu ikut spreadsheet: tiap halaman dibuka, server ambil data terbaru dar
 (di-cache 10 menit, atur lewat `SHEETS_CACHE_SECONDS`). Tombol **Refresh** buang cache langsung.
 Tidak perlu cron.
 
-## 1. Bikin service account Google (sekali saja, ±5 menit)
+## 1. Pasang Apps Script di tiap spreadsheet (tanpa Google Cloud)
 
-1. https://console.cloud.google.com → pilih/buat project.
-2. **APIs & Services → Library** → cari **Google Sheets API** → Enable.
-3. **IAM & Admin → Service Accounts → Create** (nama bebas, mis. `dashboard-reader`, tanpa role).
-4. Buka service account-nya → tab **Keys → Add key → JSON**. File JSON terunduh.
-5. Dari JSON itu ambil `client_email` dan `private_key`.
-6. Buka **kedua spreadsheet** → Share → tempel `client_email` → role **Viewer**.
+Ulangi untuk **kedua** spreadsheet (FUKU dan Hitaloka):
 
-## 2. Deploy ke Vercel
+1. Buka spreadsheet → **Extensions → Apps Script**.
+2. Hapus isi editor, paste seluruh isi `apps-script/Code.gs`.
+3. Ganti `TOKEN` di baris atas dengan teks acak panjang (misal 30+ karakter). Pakai token **yang sama** di kedua spreadsheet.
+4. Klik **Deploy → New deployment → ikon gear → Web app**.
+   - Execute as: **Me**
+   - Who has access: **Anyone**
+5. Klik **Deploy**, izinkan akses saat diminta (Advanced → Go to ... → Allow).
+6. Copy **Web app URL** (berakhiran `/exec`).
 
-```bash
-npm i -g vercel
-cd fs-dashboard
-vercel          # ikuti prompt, framework Next.js terdeteksi otomatis
-```
+Data tidak bisa dibaca tanpa token. Script hanya mengembalikan tab PL, BS, CF, AR, AP.
 
-Atau push ke GitHub lalu **Add New → Project** di vercel.com.
+> Kalau isi script diubah, deploy ulang lewat **Manage deployments → Edit → New version** supaya URL tetap sama.
 
-Isi Environment Variables (Project → Settings → Environment Variables):
+## 2. Deploy ke Vercel (via GitHub)
+
+Import repo di vercel.com/new, lalu isi Environment Variables:
 
 | Nama | Isi |
 |---|---|
-| `GOOGLE_CLIENT_EMAIL` | `client_email` dari JSON |
-| `GOOGLE_PRIVATE_KEY` | `private_key` dari JSON (paste apa adanya, `\n` boleh tetap tertulis) |
+| `FUKU_SCRIPT_URL` | Web app URL spreadsheet FUKU |
+| `HITALOKA_SCRIPT_URL` | Web app URL spreadsheet Hitaloka |
+| `SHEETS_TOKEN` | token yang sama dengan di Code.gs |
 | `DASHBOARD_PASSWORD` | password login dashboard (wajib) |
 | `DASHBOARD_USER` | username, default `admin` |
-| `FUKU_SHEET_ID`, `HITALOKA_SHEET_ID` | opsional, sudah ada default dari link yang dikasih |
 
-Lalu `vercel --prod` (atau Redeploy) supaya env terbaca.
+Setelah mengubah env, **Redeploy** supaya terbaca.
 
 > Production tanpa `DASHBOARD_PASSWORD` sengaja ditolak (503) supaya data keuangan tidak kebuka publik.
 
@@ -61,7 +61,7 @@ npm run dev
 
 ## Tambah PT baru
 
-Tambah satu objek di `lib/companies.ts` (slug, nama, sheetId), share spreadsheet-nya ke service account.
+Tambah satu objek di `lib/companies.ts` (slug, nama, sheetId, scriptUrl dari env baru), pasang `Code.gs` di spreadsheet-nya.
 Pastikan sheet punya tab `PL`, `BS`, `CF` dengan format yang sama.
 
 ## Tes parser tanpa kredensial

@@ -21,8 +21,8 @@ export default async function CompanyPage({ params }: { params: Promise<{ compan
       <div className="err">
         <strong>Gagal ambil data {c.name}</strong>
         <div style={{ margin: "6px 0" }}>
-          Cek env <code>GOOGLE_CLIENT_EMAIL</code>, <code>GOOGLE_PRIVATE_KEY</code>, dan pastikan spreadsheet sudah
-          di-share ke service account.
+          Cek env <code>{c.short.toUpperCase()}_SCRIPT_URL</code> dan <code>SHEETS_TOKEN</code> di Vercel, dan pastikan
+          deployment Apps Script-nya aktif.
         </div>
         <code>{r.error}</code>
       </div>

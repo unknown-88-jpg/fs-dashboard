@@ -1,25 +1,19 @@
 import { unstable_cache } from "next/cache";
-import { batchGet } from "./sheets";
+import { fetchSheets } from "./sheets";
 import { buildModel, type CompanyModel } from "./parse";
 import type { Company } from "./companies";
 
 const TTL = Number(process.env.SHEETS_CACHE_SECONDS || 600);
 
-async function fetchModel(sheetId: string): Promise<CompanyModel> {
-  const [pl, bs, cf, ar, ap] = await batchGet(sheetId, [
-    "PL!A1:H90",
-    "BS!A1:H90",
-    "CF!A1:H90",
-    "AR!A1:N220",
-    "AP!A1:N220",
-  ]);
-  return buildModel({ pl, bs, cf, ar, ap });
+async function fetchModel(c: Company): Promise<CompanyModel> {
+  const d = await fetchSheets({ sheetId: c.sheetId, scriptUrl: c.scriptUrl });
+  return buildModel({ pl: d.PL ?? [], bs: d.BS ?? [], cf: d.CF ?? [], ar: d.AR, ap: d.AP });
 }
 
 // Di-cache di Vercel Data Cache selama TTL. Kalau fetch gagal, error di-throw
 // sehingga hasil gagal TIDAK ikut ter-cache.
 export function getCompanyModel(c: Company): Promise<CompanyModel> {
-  return unstable_cache(() => fetchModel(c.sheetId), ["company-model", c.sheetId], {
+  return unstable_cache(() => fetchModel(c), ["company-model", c.sheetId, c.scriptUrl ?? ""], {
     revalidate: TTL,
     tags: ["sheets"],
   })();

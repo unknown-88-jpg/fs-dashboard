@@ -1,33 +1,34 @@
-import { JWT } from "google-auth-library";
 import type { Cell } from "./parse";
 
-function getClient() {
-  const email = process.env.GOOGLE_CLIENT_EMAIL;
-  const rawKey = process.env.GOOGLE_PRIVATE_KEY;
-  if (!email || !rawKey) {
-    throw new Error("GOOGLE_CLIENT_EMAIL / GOOGLE_PRIVATE_KEY belum di-set.");
-  }
-  return new JWT({
-    email,
-    key: rawKey.replace(/\\n/g, "\n"),
-    scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"],
-  });
-}
+export type SheetData = Record<string, Cell[][]>;
 
-/** Ambil beberapa range sekaligus (1 request). Nilai angka dikembalikan sebagai number. */
-export async function batchGet(spreadsheetId: string, ranges: string[]): Promise<Cell[][][]> {
-  // Mode uji lokal (tanpa kredensial): MOCK_DATA_DIR berisi <spreadsheetId>.json = { "PL": [[...]], ... }
+/**
+ * Ambil data tab PL/BS/CF/AR/AP dari endpoint Apps Script milik spreadsheet.
+ * Mode uji lokal: set MOCK_DATA_DIR berisi <spreadsheetId>.json = { "PL": [[...]], ... }
+ */
+export async function fetchSheets(opts: { sheetId: string; scriptUrl?: string }): Promise<SheetData> {
   if (process.env.MOCK_DATA_DIR) {
     const { readFileSync } = await import("node:fs");
-    const data = JSON.parse(readFileSync(`${process.env.MOCK_DATA_DIR}/${spreadsheetId}.json`, "utf8"));
-    return ranges.map((r) => data[r.split("!")[0]] ?? []);
+    return JSON.parse(readFileSync(`${process.env.MOCK_DATA_DIR}/${opts.sheetId}.json`, "utf8"));
   }
-  const params = new URLSearchParams();
-  ranges.forEach((r) => params.append("ranges", r));
-  params.set("valueRenderOption", "UNFORMATTED_VALUE");
-  params.set("majorDimension", "ROWS");
-  const res = await getClient().request<{ valueRanges?: { values?: Cell[][] }[] }>({
-    url: `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values:batchGet?${params}`,
-  });
-  return (res.data.valueRanges ?? []).map((v) => v.values ?? []);
+  const token = process.env.SHEETS_TOKEN;
+  if (!opts.scriptUrl || !token) {
+    throw new Error("URL Apps Script atau SHEETS_TOKEN belum di-set di Environment Variables.");
+  }
+  const url = `${opts.scriptUrl}${opts.scriptUrl.includes("?") ? "&" : "?"}token=${encodeURIComponent(token)}`;
+  const res = await fetch(url, { cache: "no-store", redirect: "follow" });
+  if (!res.ok) throw new Error(`Apps Script balas HTTP ${res.status}`);
+  const text = await res.text();
+  let data: SheetData & { error?: string };
+  try {
+    data = JSON.parse(text);
+  } catch {
+    throw new Error(
+      "Apps Script tidak balas JSON. Cek deployment: Execute as 'Me' dan Who has access 'Anyone'."
+    );
+  }
+  if ((data as { error?: string }).error) {
+    throw new Error(`Apps Script menolak: ${(data as { error?: string }).error} (token tidak cocok?)`);
+  }
+  return data;
 }
