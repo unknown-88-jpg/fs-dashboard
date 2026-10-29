@@ -14,12 +14,12 @@ import {
 } from "recharts";
 
 const C = {
-  revenue: "#2f7d6d",
-  cost: "#c9803a",
-  profit: "#3b6fd4",
-  neg: "#c4504a",
-  grid: "rgba(128,128,128,0.22)",
-  text: "rgba(128,128,128,0.95)",
+  revenue: "var(--chart-1)",
+  cost: "var(--chart-2)",
+  profit: "var(--chart-3)",
+  neg: "var(--destructive)",
+  grid: "var(--border)",
+  text: "var(--muted-foreground)",
 };
 
 const short = (n: number) => {
@@ -35,13 +35,14 @@ const full = (n: number) => "Rp " + new Intl.NumberFormat("id-ID").format(Math.r
 const tip = {
   contentStyle: {
     background: "var(--card)",
-    border: "1px solid var(--line)",
-    borderRadius: 10,
+    border: "1px solid var(--border)",
+    borderRadius: 8,
     fontSize: 13,
-    color: "var(--fg)",
+    color: "var(--foreground)",
+    boxShadow: "0 4px 12px rgb(0 0 0 / 0.08)",
   },
-  itemStyle: { color: "var(--fg)" },
-  labelStyle: { color: "var(--fg)", fontWeight: 600 },
+  itemStyle: { color: "var(--foreground)" },
+  labelStyle: { color: "var(--foreground)", fontWeight: 600 },
 };
 
 export function MonthlyChart({
@@ -57,8 +58,8 @@ export function MonthlyChart({
         <YAxis tickFormatter={short} tick={{ fill: C.text, fontSize: 12 }} axisLine={false} tickLine={false} width={54} />
         <Tooltip formatter={(v) => full(Number(v))} {...tip} />
         <Legend wrapperStyle={{ fontSize: 12 }} />
-        <Bar dataKey="pendapatan" name="Pendapatan neto" fill={C.revenue} radius={[4, 4, 0, 0]} />
-        <Bar dataKey="beban" name="Total beban" fill={C.cost} radius={[4, 4, 0, 0]} />
+        <Bar dataKey="pendapatan" name="Pendapatan neto" fill={C.revenue} radius={[6, 6, 0, 0]} />
+        <Bar dataKey="beban" name="Total beban" fill={C.cost} radius={[6, 6, 0, 0]} />
         <Line dataKey="laba" name="Laba bersih" stroke={C.profit} strokeWidth={2.5} dot={{ r: 4 }} />
       </ComposedChart>
     </ResponsiveContainer>
@@ -86,8 +87,8 @@ export function HBar({
           axisLine={false}
           tickLine={false}
         />
-        <Tooltip formatter={(v) => full(Number(v))} cursor={{ fill: "rgba(128,128,128,0.08)" }} {...tip} />
-        <Bar dataKey="value" name="YTD" fill={color} radius={[0, 4, 4, 0]} barSize={20} />
+        <Tooltip formatter={(v) => full(Number(v))} cursor={{ fill: "var(--muted)", opacity: 0.5 }} {...tip} />
+        <Bar dataKey="value" name="YTD" fill={color} radius={[0, 6, 6, 0]} barSize={20} />
       </BarChart>
     </ResponsiveContainer>
   );
@@ -106,9 +107,9 @@ export function CashflowChart({
         <YAxis tickFormatter={short} tick={{ fill: C.text, fontSize: 12 }} axisLine={false} tickLine={false} width={54} />
         <Tooltip formatter={(v) => full(Number(v))} {...tip} />
         <Legend wrapperStyle={{ fontSize: 12 }} />
-        <Bar dataKey="operasi" name="Operasi" fill={C.revenue} radius={[4, 4, 0, 0]} />
-        <Bar dataKey="investasi" name="Investasi" fill={C.cost} radius={[4, 4, 0, 0]} />
-        <Bar dataKey="pendanaan" name="Pendanaan" fill={C.profit} radius={[4, 4, 0, 0]} />
+        <Bar dataKey="operasi" name="Operasi" fill={C.revenue} radius={[6, 6, 0, 0]} />
+        <Bar dataKey="investasi" name="Investasi" fill={C.cost} radius={[6, 6, 0, 0]} />
+        <Bar dataKey="pendanaan" name="Pendanaan" fill={C.profit} radius={[6, 6, 0, 0]} />
       </BarChart>
     </ResponsiveContainer>
   );
