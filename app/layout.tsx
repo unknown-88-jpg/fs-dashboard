@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import "./globals.css";
 import { COMPANIES } from "@/lib/companies";
+import { NavLinks } from "@/components/NavLinks";
 
 export const metadata: Metadata = {
   title: "Dashboard Keuangan",
@@ -10,24 +11,36 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  const items = [
+    { href: "/", label: "Ringkasan" },
+    ...COMPANIES.map((c) => ({ href: `/${c.slug}`, label: c.short, dot: true })),
+  ];
   return (
     <html lang="id">
       <body>
-        <div className="wrap">
-          <div className="topbar">
+        <div className="shell">
+          <aside className="sidebar">
             <Link href="/" className="brand">
-              Dashboard Keuangan
+              <span className="brand-mark">FS</span>
+              <span>
+                Dashboard Keuangan
+                <small>Laporan per PT</small>
+              </span>
             </Link>
-            <nav className="nav">
-              <Link href="/">Ringkasan</Link>
-              {COMPANIES.map((c) => (
-                <Link key={c.slug} href={`/${c.slug}`}>
-                  {c.short}
-                </Link>
-              ))}
-            </nav>
+            <div>
+              <div className="nav-label">Menu</div>
+              <NavLinks items={items} />
+            </div>
+          </aside>
+          <div className="main">
+            <header className="topbar">
+              <Link href="/" className="brand">
+                <span className="brand-mark">FS</span>
+              </Link>
+              <NavLinks items={items.map((i) => ({ ...i, dot: false }))} />
+            </header>
+            <div className="wrap">{children}</div>
           </div>
-          {children}
         </div>
       </body>
     </html>

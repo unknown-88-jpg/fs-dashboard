@@ -164,7 +164,7 @@ export default async function CompanyPage({ params }: { params: Promise<{ compan
         <Section title="Komposisi pendapatan" hint="YTD">
           <div className="card">
             <HBar
-              color="#2f7d6d"
+              color="var(--chart-1)"
               data={[...m.revenueLines].sort((a, b) => b.ytd - a.ytd).map((l) => ({
                 name: l.label.replace(/^Pendapatan\s+/i, ""),
                 value: l.ytd,
@@ -176,7 +176,7 @@ export default async function CompanyPage({ params }: { params: Promise<{ compan
           <Section title="Beban pokok" hint="YTD">
             <div className="card">
               <HBar
-                color="#a8691a"
+                color="var(--chart-2)"
                 data={m.cogsLines.map((l) => ({ name: l.label, value: l.ytd }))}
               />
             </div>
@@ -185,7 +185,7 @@ export default async function CompanyPage({ params }: { params: Promise<{ compan
         <Section title="Beban usaha" hint="YTD">
           <div className="card">
             <HBar
-              color="#c9803a"
+              color="var(--chart-2)"
               data={m.opexLines.map((l) => ({ name: l.label.replace(/^Beban\s+/i, ""), value: l.ytd }))}
             />
           </div>
@@ -258,7 +258,7 @@ export default async function CompanyPage({ params }: { params: Promise<{ compan
             <Section title="Penjualan per keterangan jurnal" hint="Top 8, total periode">
               <div className="card">
                 {m.journal.topRevenueParties.length ? (
-                  <HBar color="#2f7d6d" data={m.journal.topRevenueParties} />
+                  <HBar color="var(--chart-1)" data={m.journal.topRevenueParties} />
                 ) : (
                   <span className="muted small">Belum ada jurnal penjualan.</span>
                 )}
@@ -267,7 +267,7 @@ export default async function CompanyPage({ params }: { params: Promise<{ compan
             <Section title="Pengeluaran beban per keterangan jurnal" hint="Top 8 (beban pokok + beban usaha)">
               <div className="card">
                 {m.journal.topCostParties.length ? (
-                  <HBar color="#c9803a" data={m.journal.topCostParties} />
+                  <HBar color="var(--chart-2)" data={m.journal.topCostParties} />
                 ) : (
                   <span className="muted small">Belum ada jurnal beban.</span>
                 )}

@@ -20,7 +20,7 @@ export default async function Home() {
           </div>
         </div>
         <form action="/api/refresh" method="post">
-          <button className="btn" type="submit">
+          <button className="btn primary" type="submit">
             Refresh data sekarang
           </button>
         </form>
