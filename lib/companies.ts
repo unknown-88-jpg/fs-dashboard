@@ -6,6 +6,7 @@ export interface Company {
   slug: string;
   name: string;
   short: string;
+  prefix: string; // awalan nama env, mis. LIXUS_PT -> LIXUS_PT_TB_CSV_URL
   sheetId?: string; // hanya untuk tombol "Buka spreadsheet"
   source: Source;
 }
@@ -25,6 +26,7 @@ export const COMPANIES: Company[] = [
     slug: "fuku",
     name: "PT Fuku Aksa Arta",
     short: "FUKU",
+    prefix: "FUKU",
     sheetId: process.env.FUKU_SHEET_ID || "1oPeHBC6tomdLMmOCZtiaALQ_xoRGu0SQtI6tbZAWL6o",
     source: sourceFor("FUKU"),
   },
@@ -32,6 +34,7 @@ export const COMPANIES: Company[] = [
     slug: "hitaloka",
     name: "PT Hita Loka Manava",
     short: "Hitaloka",
+    prefix: "HITALOKA",
     sheetId: process.env.HITALOKA_SHEET_ID || "1eKfZ_4q0QdX_MqC8q7CIzX4DZHLsQfOyLeEumvpncwY",
     source: sourceFor("HITALOKA"),
   },
@@ -39,8 +42,41 @@ export const COMPANIES: Company[] = [
     slug: "dorma",
     name: "PT Dorma Teknologi Indonesia",
     short: "Dorma",
+    prefix: "DORMA",
     sheetId: process.env.DORMA_SHEET_ID || undefined,
     source: sourceFor("DORMA"),
+  },
+  {
+    slug: "lixus-pt",
+    name: "PT Lintas Ekspansi Usaha",
+    short: "Lixus PT",
+    prefix: "LIXUS_PT",
+    sheetId: process.env.LIXUS_PT_SHEET_ID || undefined,
+    source: sourceFor("LIXUS_PT"),
+  },
+  {
+    slug: "lixus-cv",
+    name: "CV Lintas Ekspansi Usaha",
+    short: "Lixus CV",
+    prefix: "LIXUS_CV",
+    sheetId: process.env.LIXUS_CV_SHEET_ID || undefined,
+    source: sourceFor("LIXUS_CV"),
+  },
+  {
+    slug: "nec-creative",
+    name: "PT Nilai Ekosistem Commercial - Creative",
+    short: "NEC Creative",
+    prefix: "NEC_CREATIVE",
+    sheetId: process.env.NEC_CREATIVE_SHEET_ID || undefined,
+    source: sourceFor("NEC_CREATIVE"),
+  },
+  {
+    slug: "nec-commercial",
+    name: "PT NEC - Commercial",
+    short: "NEC Commercial",
+    prefix: "NEC_COMMERCIAL",
+    sheetId: process.env.NEC_COMMERCIAL_SHEET_ID || undefined,
+    source: sourceFor("NEC_COMMERCIAL"),
   },
 ];
 
