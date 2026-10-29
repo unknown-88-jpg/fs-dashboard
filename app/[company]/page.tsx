@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { getCompany } from "@/lib/companies";
 import { safeModel } from "@/lib/data";
-import { MONTH_LABELS, type Line } from "@/lib/parse";
+import type { Line } from "@/lib/parse";
 import { pct, rp, rpShort, wibTime } from "@/lib/format";
 import { CashflowChart, HBar, MonthlyChart } from "@/components/Charts";
 import { Delta, Kpi, Section } from "@/components/Ui";
@@ -21,8 +21,17 @@ export default async function CompanyPage({ params }: { params: Promise<{ compan
       <div className="err">
         <strong>Gagal ambil data {c.name}</strong>
         <div style={{ margin: "6px 0" }}>
-          Cek env <code>{c.short.toUpperCase()}_SCRIPT_URL</code> dan <code>SHEETS_TOKEN</code> di Vercel, dan pastikan
-          deployment Apps Script-nya aktif.
+          {c.source.kind === "csv" ? (
+            <>
+              Cek env <code>{c.short.toUpperCase()}_TB_CSV_URL</code> dan <code>{c.short.toUpperCase()}_EJ_CSV_URL</code>{" "}
+              di Vercel, dan pastikan publikasi web di spreadsheet masih aktif.
+            </>
+          ) : (
+            <>
+              Cek env <code>{c.short.toUpperCase()}_SCRIPT_URL</code> dan <code>SHEETS_TOKEN</code> di Vercel, dan
+              pastikan deployment Apps Script-nya aktif.
+            </>
+          )}
         </div>
         <code>{r.error}</code>
       </div>
@@ -32,8 +41,9 @@ export default async function CompanyPage({ params }: { params: Promise<{ compan
   const m = r.model;
   const { pl, bs, cf } = m;
   const idx = m.reportIdx;
-  const months = m.activeMonths;
-  const sheetUrl = `https://docs.google.com/spreadsheets/d/${c.sheetId}/edit`;
+  const act = m.activeMonths;
+  const sheetUrl = c.sheetId ? `https://docs.google.com/spreadsheets/d/${c.sheetId}/edit` : null;
+  const isTb = m.source === "tb";
 
   if (idx < 0) {
     return (
@@ -48,14 +58,14 @@ export default async function CompanyPage({ params }: { params: Promise<{ compan
   const grossMargin = pl.revenue.ytd ? pl.grossProfit.ytd / pl.revenue.ytd : null;
   const netMargin = pl.revenue.ytd ? pl.netProfit.ytd / pl.revenue.ytd : null;
 
-  const chartData = months.map((i) => ({
-    month: MONTH_LABELS[i],
+  const chartData = act.map((i) => ({
+    month: m.months[i],
     pendapatan: pl.revenue.m[i],
     beban: pl.cogs.m[i] + pl.opex.m[i],
     laba: pl.netProfit.m[i],
   }));
-  const cfData = months.map((i) => ({
-    month: MONTH_LABELS[i],
+  const cfData = act.map((i) => ({
+    month: m.months[i],
     operasi: cf.operating.m[i],
     investasi: cf.investing.m[i],
     pendanaan: cf.financing.m[i],
@@ -70,6 +80,9 @@ export default async function CompanyPage({ params }: { params: Promise<{ compan
     { l: { ...pl.opex, label: "Beban usaha", m: pl.opex.m.map((v) => -v), ytd: -pl.opex.ytd } },
     { l: { ...pl.operatingProfit, label: "Laba usaha" }, cls: "total" },
     { l: { ...pl.otherNet, label: "Pendapatan (beban) lain-lain" } },
+    ...(Math.abs(pl.tax.ytd) > 0.5 || pl.tax.m.some((v) => Math.abs(v) > 0.5)
+      ? [{ l: { ...pl.tax, label: "Beban pajak penghasilan", m: pl.tax.m.map((v) => -v), ytd: -pl.tax.ytd } }]
+      : []),
     { l: { ...pl.netProfit, label: "Laba (rugi) bersih" }, cls: "total" },
   ];
 
@@ -97,13 +110,15 @@ export default async function CompanyPage({ params }: { params: Promise<{ compan
         <div>
           <h1>{c.name}</h1>
           <div className="muted small">
-            Periode Sep s.d. {m.reportLabel} · diambil {wibTime(new Date(m.fetchedAt))}
+            Periode {m.months[0]} s.d. {m.reportLabel} · diambil {wibTime(new Date(m.fetchedAt))}
           </div>
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <a className="btn" href={sheetUrl} target="_blank" rel="noreferrer">
-            Buka spreadsheet
-          </a>
+          {sheetUrl ? (
+            <a className="btn" href={sheetUrl} target="_blank" rel="noreferrer">
+              Buka spreadsheet
+            </a>
+          ) : null}
           <form action="/api/refresh" method="post">
             <button className="btn" type="submit">
               Refresh
@@ -157,6 +172,16 @@ export default async function CompanyPage({ params }: { params: Promise<{ compan
             />
           </div>
         </Section>
+        {m.cogsLines && m.cogsLines.length ? (
+          <Section title="Beban pokok" hint="YTD">
+            <div className="card">
+              <HBar
+                color="#a8691a"
+                data={m.cogsLines.map((l) => ({ name: l.label, value: l.ytd }))}
+              />
+            </div>
+          </Section>
+        ) : null}
         <Section title="Beban usaha" hint="YTD">
           <div className="card">
             <HBar
@@ -173,8 +198,8 @@ export default async function CompanyPage({ params }: { params: Promise<{ compan
             <thead>
               <tr>
                 <th>Rp</th>
-                {months.map((i) => (
-                  <th key={i}>{MONTH_LABELS[i]}</th>
+                {act.map((i) => (
+                  <th key={i}>{m.months[i]}</th>
                 ))}
                 <th>YTD</th>
               </tr>
@@ -183,7 +208,7 @@ export default async function CompanyPage({ params }: { params: Promise<{ compan
               {plRows.map(({ l, cls }) => (
                 <tr key={l.label} className={cls}>
                   <td>{l.label}</td>
-                  {months.map((i) => (
+                  {act.map((i) => (
                     <td key={i} className={l.m[i] < 0 && cls === "total" ? "neg" : ""}>
                       {rp(l.m[i])}
                     </td>
@@ -203,7 +228,7 @@ export default async function CompanyPage({ params }: { params: Promise<{ compan
               <thead>
                 <tr>
                   <th>Rp</th>
-                  {prev ? <th>{MONTH_LABELS[idx - 1]}</th> : null}
+                  {prev ? <th>{m.months[idx - 1]}</th> : null}
                   <th>{m.reportLabel}</th>
                 </tr>
               </thead>
@@ -227,11 +252,66 @@ export default async function CompanyPage({ params }: { params: Promise<{ compan
         </Section>
       </div>
 
-      <Section title="Pengecekan data" hint="Dibaca dari kolom control & status di spreadsheet">
+      {m.journal ? (
+        <>
+          <div className="grid g-2">
+            <Section title="Penjualan per keterangan jurnal" hint="Top 8, total periode">
+              <div className="card">
+                {m.journal.topRevenueParties.length ? (
+                  <HBar color="#2f7d6d" data={m.journal.topRevenueParties} />
+                ) : (
+                  <span className="muted small">Belum ada jurnal penjualan.</span>
+                )}
+              </div>
+            </Section>
+            <Section title="Pengeluaran beban per keterangan jurnal" hint="Top 8 (beban pokok + beban usaha)">
+              <div className="card">
+                {m.journal.topCostParties.length ? (
+                  <HBar color="#c9803a" data={m.journal.topCostParties} />
+                ) : (
+                  <span className="muted small">Belum ada jurnal beban.</span>
+                )}
+              </div>
+            </Section>
+          </div>
+
+          <Section title="Transaksi terbesar" hint={`${m.journal.count} baris Entry Jurnal`}>
+            <div className="card scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Keterangan</th>
+                    <th>Tanggal</th>
+                    <th>Debit</th>
+                    <th>Kredit</th>
+                    <th>Rp</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {m.journal.largest.map((t, i) => (
+                    <tr key={i}>
+                      <td>{t.desc}</td>
+                      <td>{t.date}</td>
+                      <td>{t.debit}</td>
+                      <td>{t.credit}</td>
+                      <td>{rp(t.amount)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Section>
+        </>
+      ) : null}
+
+      <Section
+        title="Pengecekan data"
+        hint={isTb ? "Dihitung dari TB dan Entry Jurnal" : "Dibaca dari kolom control & status di spreadsheet"}
+      >
         <div className="card checks">
           <div className="check">
             <span>
-              Kontrol internal PL / BS / CF{" "}
+              {isTb ? "Kontrol internal data" : "Kontrol internal PL / BS / CF"}{" "}
               <span className="muted small">({m.controls.length - failed.length}/{m.controls.length} lolos)</span>
             </span>
             <span className={`badge ${failed.length ? "bad" : "ok"}`}>{failed.length ? "Ada selisih" : "OK"}</span>
@@ -241,10 +321,10 @@ export default async function CompanyPage({ params }: { params: Promise<{ compan
               <span className="small">
                 {f.sheet}: {f.label}
               </span>
-              <span className="neg small">selisih {rp(f.maxAbs)}</span>
+              <span className="neg small">{f.note ?? `selisih ${rp(f.maxAbs)}`}</span>
             </div>
           ))}
-          {subs.map(({ name, s }) => (
+          {(isTb ? [] : subs).map(({ name, s }) => (
             <div className="check" key={name}>
               <span>
                 {name}
@@ -261,7 +341,12 @@ export default async function CompanyPage({ params }: { params: Promise<{ compan
         </div>
       </Section>
 
-      <footer>Sumber: sheet PL, BS, CF, AR, AP pada spreadsheet {c.short}. Nilai dalam Rupiah.</footer>
+      <footer>
+        {isTb
+          ? `Sumber: tab TB dan Entry Jurnal spreadsheet ${c.short}. Laba rugi, neraca, dan arus kas (tidak langsung) dihitung dari mapping akun di TB. Angka dari link publish-to-web dibulatkan ke Rupiah.`
+          : `Sumber: sheet PL, BS, CF, AR, AP pada spreadsheet ${c.short}.`}{" "}
+        Nilai dalam Rupiah.
+      </footer>
     </>
   );
 }

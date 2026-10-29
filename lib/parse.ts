@@ -113,6 +113,28 @@ export interface Control {
   label: string;
   ok: boolean;
   maxAbs: number;
+  note?: string; // kalau ada, ditampilkan menggantikan "selisih Rp ..."
+}
+
+export interface JournalParty {
+  name: string;
+  value: number;
+}
+export interface JournalTx {
+  date: string; // dd-mm-yyyy
+  desc: string;
+  ref: string;
+  debit: string;
+  credit: string;
+  amount: number;
+}
+export interface JournalSummary {
+  count: number;
+  perMonth: number[]; // jumlah baris jurnal per bulan
+  topRevenueParties: JournalParty[]; // keterangan dengan penjualan terbesar
+  topCostParties: JournalParty[]; // keterangan dengan beban pokok/usaha terbesar
+  largest: JournalTx[]; // transaksi terbesar
+  unposted: number; // baris dengan akun tidak ada di COA / akun header
 }
 export interface SubledgerStatus {
   status: string | null;
@@ -131,6 +153,8 @@ export interface BalanceSnapshot {
 
 export interface CompanyModel {
   fetchedAt: string;
+  source: "statements" | "tb"; // statements = baca tab PL/BS/CF, tb = hitung dari TB + Entry Jurnal
+  months: string[]; // label bulan, mis. ["Sep-26", ...]
   activeMonths: number[]; // index bulan yang punya transaksi P&L
   reportIdx: number; // bulan laporan terakhir (-1 = belum ada data)
   reportLabel: string;
@@ -143,10 +167,13 @@ export interface CompanyModel {
     opex: Line; // positif = beban
     operatingProfit: Line;
     otherNet: Line;
+    tax: Line; // beban pajak penghasilan (positif = beban); nol bila tidak dipisah
     netProfit: Line;
   };
   revenueLines: Line[];
   opexLines: Line[];
+  cogsLines?: Line[];
+  journal?: JournalSummary;
   bs: { current: BalanceSnapshot; previous: BalanceSnapshot | null; perMonth: BalanceSnapshot[] };
   cf: {
     operating: Line;
@@ -261,6 +288,7 @@ export function buildModel(input: {
     opex: lineOf(opexRow, "Beban usaha", true),
     operatingProfit: lineOf(opProfit, "Laba usaha"),
     otherNet: lineOf(other, "Lain-lain"),
+    tax: zeroLine("Pajak"),
     netProfit: lineOf(net, "Laba bersih"),
   };
 
@@ -297,6 +325,8 @@ export function buildModel(input: {
 
   return {
     fetchedAt: new Date().toISOString(),
+    source: "statements",
+    months: [...MONTH_LABELS],
     activeMonths,
     reportIdx,
     reportLabel: reportIdx >= 0 ? MONTH_LABELS[reportIdx] : "–",

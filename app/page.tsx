@@ -42,7 +42,7 @@ export default async function Home() {
           return (
             <Link href={`/${c.slug}`} className="card co-card" key={c.slug}>
               <h3>{c.name}</h3>
-              <div className="muted small">Sep s.d. {m.reportLabel} (YTD periode berjalan)</div>
+              <div className="muted small">{m.months[0]} s.d. {m.reportLabel} (YTD periode berjalan)</div>
               <div className="co-stats">
                 <div>
                   <div className="l">Pendapatan neto</div>
@@ -75,9 +75,9 @@ export default async function Home() {
       </div>
 
       <footer>
-        Angka dibaca langsung dari sheet PL, BS, CF masing-masing PT, jadi dashboard ini otomatis ikut berubah
+        Angka dibaca langsung dari spreadsheet masing-masing PT, jadi dashboard ini otomatis ikut berubah
         saat Entry Jurnal di spreadsheet diisi. Cache {Number(process.env.SHEETS_CACHE_SECONDS || 600) / 60} menit.
-        Dua PT ditampilkan terpisah, bukan konsolidasi.
+        PT ditampilkan terpisah, bukan konsolidasi.
       </footer>
     </>
   );
