@@ -23,12 +23,12 @@ export default async function CompanyPage({ params }: { params: Promise<{ compan
         <div style={{ margin: "6px 0" }}>
           {c.source.kind === "csv" ? (
             <>
-              Cek env <code>{c.short.toUpperCase()}_TB_CSV_URL</code> dan <code>{c.short.toUpperCase()}_EJ_CSV_URL</code>{" "}
+              Cek env <code>{c.prefix}_TB_CSV_URL</code> dan <code>{c.prefix}_EJ_CSV_URL</code>{" "}
               di Vercel, dan pastikan publikasi web di spreadsheet masih aktif.
             </>
           ) : (
             <>
-              Cek env <code>{c.short.toUpperCase()}_SCRIPT_URL</code> dan <code>SHEETS_TOKEN</code> di Vercel, dan
+              Cek env <code>{c.prefix}_SCRIPT_URL</code> dan <code>SHEETS_TOKEN</code> di Vercel, dan
               pastikan deployment Apps Script-nya aktif.
             </>
           )}
