@@ -39,6 +39,18 @@ Setelah mengubah env, **Redeploy** supaya terbaca.
 
 > Production tanpa `DASHBOARD_PASSWORD` sengaja ditolak (503) supaya data keuangan tidak kebuka publik.
 
+## Analisis tambahan (halaman tiap entitas)
+
+- **Analisis per rentang tanggal**: pilih tanggal dari/sampai dan interval harian, mingguan, bulanan, atau kuartal.
+  Dihitung dari baris Entry Jurnal yang terposting: pendapatan, beban, laba, kas masuk/keluar, tagihan baru dan
+  pelunasan piutang, tagihan baru dan pembayaran utang usaha, plus saldo kas/piutang/utang di akhir tiap interval.
+  Ringkasan menampilkan versi gabungan semua entitas.
+- **Matriks analisa**: rasio likuiditas, solvabilitas, profitabilitas, serta umur piutang (DSO) dan umur utang (DPO)
+  per bulan, dengan status Sehat/Waspada/Perlu perhatian untuk bulan terakhir. Ambang batasnya ada di `lib/analysis.ts`.
+- Aging per invoice (30/60/90 hari) belum ada karena TB dan Entry Jurnal tidak memuat nomor invoice dan jatuh tempo.
+- Penyesuaian yang tidak lewat Entry Jurnal (mis. penyusutan dari tab Fixed Asset) hanya ada di laporan bulanan,
+  jadi total rentang penuh bisa sedikit beda. Selisihnya ditampilkan di catatan bawah tabel.
+
 ## Catatan penting
 
 - Link publish-to-web bisa dibaca **siapa pun yang punya link**, tanpa login. Jangan dibagikan. Untuk menutup:

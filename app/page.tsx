@@ -3,6 +3,7 @@ import { COMPANIES } from "@/lib/companies";
 import { safeModel } from "@/lib/data";
 import { pct, rp, rpShort, wibTime } from "@/lib/format";
 import { Kpi, Section } from "@/components/Ui";
+import { RangeAnalysis } from "@/components/RangeAnalysis";
 
 export const dynamic = "force-dynamic";
 
@@ -59,6 +60,15 @@ export default async function Home() {
             <Kpi label="Total aset" value={rpShort(tot.assets)} sub={`Liabilitas ${rpShort(tot.liabilities)}`} />
             <Kpi label="Ekuitas" value={rpShort(tot.equity)} tone={tot.equity < 0 ? "neg" : "neutral"} />
           </div>
+
+          <Section title="Analisis per rentang tanggal" hint="Gabungan semua entitas">
+            <RangeAnalysis
+              title="Gabungan"
+              series={oks.flatMap(({ c, m }) =>
+                m.daily && m.openBal ? [{ name: c.short, daily: m.daily, openBal: m.openBal, gap: m.gap }] : []
+              )}
+            />
+          </Section>
 
           <Section
             title="Perbandingan entitas"
