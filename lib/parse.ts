@@ -149,6 +149,27 @@ export interface BalanceSnapshot {
   totalAssets: number;
   liabilities: number;
   equity: number;
+  // hanya terisi untuk sumber TB
+  payables?: number; // utang usaha
+  currentLiabilities?: number; // liabilitas jangka pendek (akun 21xxxx)
+  inventory?: number;
+  debt?: number; // pinjaman berbunga (jangka pendek + panjang)
+}
+
+/** Ringkasan transaksi per hari dari Entry Jurnal (hanya baris yang terposting ke TB). */
+export interface DailyRow {
+  d: string; // YYYY-MM-DD
+  rev: number; // pendapatan neto
+  cogs: number; // beban pokok
+  opex: number; // beban usaha
+  other: number; // pendapatan (beban) lain-lain + pajak, positif = untung
+  cashIn: number;
+  cashOut: number;
+  arNew: number; // tagihan baru ke pelanggan (debit piutang usaha)
+  arPaid: number; // pelunasan piutang (kredit piutang usaha)
+  apNew: number; // tagihan baru dari pemasok (kredit utang usaha)
+  apPaid: number; // pembayaran utang (debit utang usaha)
+  n: number; // jumlah baris jurnal
 }
 
 export interface CompanyModel {
@@ -174,6 +195,10 @@ export interface CompanyModel {
   opexLines: Line[];
   cogsLines?: Line[];
   journal?: JournalSummary;
+  daily?: DailyRow[]; // urut tanggal, hanya hari yang punya transaksi
+  openBal?: { cash: number; ar: number; ap: number }; // saldo awal periode TB
+  // selisih TB vs Entry Jurnal (mis. penyusutan dari tab Fixed Asset yang tidak lewat jurnal)
+  gap?: { net: number; cash: number };
   bs: { current: BalanceSnapshot; previous: BalanceSnapshot | null; perMonth: BalanceSnapshot[] };
   cf: {
     operating: Line;

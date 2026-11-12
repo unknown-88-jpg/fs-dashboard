@@ -5,6 +5,8 @@ import type { Line } from "@/lib/parse";
 import { pct, rp, rpShort, wibTime } from "@/lib/format";
 import { CashflowChart, HBar, MonthlyChart } from "@/components/Charts";
 import { Delta, Kpi, Section } from "@/components/Ui";
+import { RangeAnalysis } from "@/components/RangeAnalysis";
+import { Matrix } from "@/components/Matrix";
 
 export const dynamic = "force-dynamic";
 
@@ -88,7 +90,7 @@ export default async function CompanyPage({ params }: { params: Promise<{ compan
 
   const cur = bs.current;
   const prev = bs.previous;
-  const bsRows: { label: string; key: keyof typeof cur; cls?: string }[] = [
+  const bsRows: { label: string; key: "cash" | "receivables" | "currentAssets" | "nonCurrentAssets" | "totalAssets" | "liabilities" | "equity"; cls?: string }[] = [
     { label: "Kas dan setara kas", key: "cash" },
     { label: "Piutang usaha", key: "receivables" },
     { label: "Aset lancar", key: "currentAssets", cls: "total" },
@@ -153,6 +155,12 @@ export default async function CompanyPage({ params }: { params: Promise<{ compan
           sub={`Liabilitas ${rpShort(cur.liabilities)}`}
         />
       </div>
+
+      {m.daily && m.openBal ? (
+        <Section title="Analisis per rentang tanggal" hint="Pilih tanggal dan interval: harian, mingguan, bulanan, kuartal">
+          <RangeAnalysis series={[{ name: c.short, daily: m.daily, openBal: m.openBal, gap: m.gap }]} title={c.short} />
+        </Section>
+      ) : null}
 
       <Section title="Pendapatan, beban, dan laba per bulan">
         <div className="card">
@@ -302,6 +310,12 @@ export default async function CompanyPage({ params }: { params: Promise<{ compan
             </div>
           </Section>
         </>
+      ) : null}
+
+      {isTb ? (
+        <Section title="Matriks analisa" hint="Rasio per bulan, status dinilai dari bulan terakhir">
+          <Matrix m={m} />
+        </Section>
       ) : null}
 
       <Section

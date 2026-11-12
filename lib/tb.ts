@@ -12,6 +12,7 @@ import {
   type Control,
   type JournalSummary,
   type JournalTx,
+  type DailyRow,
   type Line,
 } from "./parse";
 
@@ -228,6 +229,12 @@ export function buildModelFromTB(tbRows: Cell[][], ejRows: Cell[][]): CompanyMod
     throw new Error("Tab Entry Jurnal: header (Tanggal, Nominal, COA 1, COA 2) tidak ditemukan. Cek link CSV mengarah ke tab Entry Jurnal.");
   }
 
+  const posIs = (a: Acct | undefined, re: RegExp) => !!a && re.test(norm(a.pos));
+  const isCashA = (a: Acct | undefined) => posIs(a, /^kas dan setara kas$/);
+  const isArA = (a: Acct | undefined) => posIs(a, /^piutang usaha/);
+  const isApA = (a: Acct | undefined) => posIs(a, /^utang usaha/);
+  const dayMap = new Map<string, DailyRow>();
+  const ymd2 = (d: YMD) => `${d.y}-${String(d.m).padStart(2, "0")}-${String(d.d).padStart(2, "0")}`;
   const perMonthCount = zeros(n);
   const revParty = new Map<string, number>();
   const costParty = new Map<string, number>();
@@ -253,6 +260,34 @@ export function buildModelFromTB(tbRows: Cell[][], ejRows: Cell[][]): CompanyMod
       continue;
     }
     perMonthCount[mi]++;
+    {
+      const key = ymd2(d);
+      const t =
+        dayMap.get(key) ??
+        { d: key, rev: 0, cogs: 0, opex: 0, other: 0, cashIn: 0, cashOut: 0, arNew: 0, arPaid: 0, apNew: 0, apPaid: 0, n: 0 };
+      const da = byNo.get(debNo!);
+      const ca = byNo.get(creNo!);
+      const dl = String(debNo)[0];
+      const cl = String(creNo)[0];
+      t.n++;
+      if (cl === "4") t.rev += amt;
+      if (dl === "4") t.rev -= amt;
+      if (dl === "5") t.cogs += amt;
+      if (cl === "5") t.cogs -= amt;
+      if (dl === "6") t.opex += amt;
+      if (cl === "6") t.opex -= amt;
+      if (cl === "7") t.other += amt;
+      if (dl === "7") t.other -= amt;
+      if (dl === "8") t.other -= amt;
+      if (cl === "8") t.other += amt;
+      if (isCashA(da) && !isCashA(ca)) t.cashIn += amt;
+      if (isCashA(ca) && !isCashA(da)) t.cashOut += amt;
+      if (isArA(da)) t.arNew += amt;
+      if (isArA(ca)) t.arPaid += amt;
+      if (isApA(ca)) t.apNew += amt;
+      if (isApA(da)) t.apPaid += amt;
+      dayMap.set(key, t);
+    }
     const desc = String(row[eDesc] ?? "").replace(/\s+/g, " ").trim() || "(tanpa keterangan)";
     const dLead = String(debNo)[0];
     const cLead = String(creNo)[0];
@@ -303,6 +338,10 @@ export function buildModelFromTB(tbRows: Cell[][], ejRows: Cell[][]): CompanyMod
       nonCurrentAssets: sumB(nonCurrent),
       totalAssets: sumB(assets),
       liabilities: -sumB(N.filter((a) => lead(a) === "2")),
+      payables: -sumB(N.filter((a) => isApA(a))),
+      currentLiabilities: -sumB(N.filter((a) => String(a.no).startsWith("21"))),
+      inventory: sumB(assets.filter((a) => norm(a.pos) === "persediaan")),
+      debt: -sumB(N.filter((a) => lead(a) === "2" && /pinjaman/.test(norm(a.pos)))),
       equity: -sumB(N.filter((a) => lead(a) === "3")) + profitCum[i],
     };
   };
@@ -370,6 +409,18 @@ export function buildModelFromTB(tbRows: Cell[][], ejRows: Cell[][]): CompanyMod
     opexLines,
     cogsLines,
     journal,
+    daily: [...dayMap.values()].sort((a, b) => (a.d < b.d ? -1 : 1)),
+    gap: {
+      net: sumArr(netProfit) - [...dayMap.values()].reduce((s, r) => s + r.rev - r.cogs - r.opex + r.other, 0),
+      cash:
+        perMonthBs[n - 1].cash -
+        (cashBegin + [...dayMap.values()].reduce((s, r) => s + r.cashIn - r.cashOut, 0)),
+    },
+    openBal: {
+      cash: cashBegin,
+      ar: N.filter(isArA).reduce((s, a) => s + a.open, 0),
+      ap: -N.filter(isApA).reduce((s, a) => s + a.open, 0),
+    },
     bs: { current: curBs, previous: prevBs, perMonth: perMonthBs },
     cf: {
       operating: line("Operasi", opF),

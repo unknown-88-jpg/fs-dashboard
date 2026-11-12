@@ -7,6 +7,7 @@ import {
   ComposedChart,
   Legend,
   Line,
+  LineChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -111,6 +112,27 @@ export function CashflowChart({
         <Bar dataKey="investasi" name="Investasi" fill={C.cost} radius={[6, 6, 0, 0]} />
         <Bar dataKey="pendanaan" name="Pendanaan" fill={C.profit} radius={[6, 6, 0, 0]} />
       </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
+export function BalanceChart({
+  data,
+}: {
+  data: { month: string; kas: number; piutang: number; utang: number }[];
+}) {
+  return (
+    <ResponsiveContainer width="100%" height={280}>
+      <LineChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+        <CartesianGrid stroke={C.grid} vertical={false} />
+        <XAxis dataKey="month" tick={{ fill: C.text, fontSize: 12 }} axisLine={false} tickLine={false} minTickGap={24} />
+        <YAxis tickFormatter={short} tick={{ fill: C.text, fontSize: 12 }} axisLine={false} tickLine={false} width={54} />
+        <Tooltip formatter={(v) => full(Number(v))} {...tip} />
+        <Legend wrapperStyle={{ fontSize: 12 }} />
+        <Line dataKey="kas" name="Kas" stroke={C.revenue} strokeWidth={2.5} dot={false} />
+        <Line dataKey="piutang" name="Piutang usaha" stroke={C.profit} strokeWidth={2.5} dot={false} />
+        <Line dataKey="utang" name="Utang usaha" stroke={C.cost} strokeWidth={2.5} dot={false} />
+      </LineChart>
     </ResponsiveContainer>
   );
 }
