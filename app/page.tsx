@@ -5,6 +5,7 @@ import { pct, rp, rpShort, wibTime } from "@/lib/format";
 import { Kpi, Section } from "@/components/Ui";
 import { RangeAnalysis } from "@/components/RangeAnalysis";
 import { runwayOf } from "@/lib/analysis";
+import { buildAlerts, countAlerts } from "@/lib/alerts";
 
 export const dynamic = "force-dynamic";
 
@@ -134,6 +135,8 @@ export default async function Home() {
         </>
       ) : null}
 
+      {oks.length ? <AlertSection oks={oks} /> : null}
+
       {oks.some((x) => x.m.cfo) ? <IcSection oks={oks} totRevenue={tot.revenue} /> : null}
 
       <Section title="Per entitas">
@@ -262,6 +265,43 @@ function IcSection({ oks, totRevenue }: { oks: Ok[]; totRevenue: number }) {
           Pendapatan neto gabungan setelah mengeliminasi pendapatan IC: {rpShort(totRevenue - sum("icRev"))}; laba bersih tidak berubah
           bila beban IC pasangannya ikut dieliminasi.
         </div>
+      </div>
+    </Section>
+  );
+}
+
+function AlertSection({ oks }: { oks: Ok[] }) {
+  const rows = oks.map(({ c, m }) => {
+    const a = buildAlerts(m);
+    return { c, a, n: countAlerts(a) };
+  });
+  return (
+    <Section title="Peringatan dini" hint="Ringkasan pengecekan otomatis tiap entitas">
+      <div className="card scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Entitas</th>
+              <th>Kritis</th>
+              <th>Waspada</th>
+              <th>Catatan</th>
+              <th>Temuan utama</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(({ c, a, n }) => (
+              <tr key={c.slug}>
+                <td>
+                  <Link href={`/${c.slug}`}>{c.short}</Link>
+                </td>
+                <td>{n.bad ? <span className="badge bad">{n.bad}</span> : "0"}</td>
+                <td>{n.warn ? <span className="badge warn">{n.warn}</span> : "0"}</td>
+                <td>{n.info}</td>
+                <td className="alert-top">{a.length ? a.slice(0, 2).map((x) => x.title).join(" · ") : "Tidak ada peringatan"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </Section>
   );
