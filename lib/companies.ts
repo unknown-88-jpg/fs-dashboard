@@ -78,6 +78,14 @@ export const COMPANIES: Company[] = [
     sheetId: process.env.NEC_COMMERCIAL_SHEET_ID || undefined,
     source: sourceFor("NEC_COMMERCIAL"),
   },
+  {
+    slug: "dty",
+    name: "CV DTY",
+    short: "DTY",
+    prefix: "DTY",
+    sheetId: process.env.DTY_SHEET_ID || undefined,
+    source: sourceFor("DTY"),
+  },
 ];
 
 export const getCompany = (slug: string) => COMPANIES.find((c) => c.slug === slug);
