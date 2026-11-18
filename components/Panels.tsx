@@ -149,3 +149,109 @@ export function RelatedPanel({ m }: { m: CompanyModel }) {
     </div>
   );
 }
+
+const pctN = (v: number) => new Intl.NumberFormat("id-ID", { maximumFractionDigits: 1 }).format(v * 100) + "%";
+
+export function CostStructure({ m }: { m: CompanyModel }) {
+  const rev = m.pl.revenue.ytd;
+  const cogs = m.pl.cogs.ytd;
+  const opex = m.pl.opex.ytd;
+  const total = cogs + opex;
+  const lines = [
+    ...(m.cogsLines ?? []).map((l) => ({ ...l, grp: "Beban pokok" })),
+    ...m.opexLines.map((l) => ({ ...l, grp: "Beban usaha" })),
+  ].sort((a, b) => b.ytd - a.ytd);
+  if (!lines.length || total <= 0) return null;
+  const payroll = m.cfo ? m.cfo.payroll.reduce((s, v) => s + v, 0) : null;
+  return (
+    <div className="card scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>Pos biaya</th>
+            <th>Kelompok</th>
+            <th>YTD (Rp)</th>
+            <th>% pendapatan</th>
+            <th>% total biaya</th>
+          </tr>
+        </thead>
+        <tbody>
+          {lines.map((l) => (
+            <tr key={l.grp + l.label}>
+              <td>{l.label}</td>
+              <td>{l.grp}</td>
+              <td>{rp(l.ytd)}</td>
+              <td>{rev > 0 ? pctN(l.ytd / rev) : "–"}</td>
+              <td>
+                {pctN(l.ytd / total)}{" "}
+                <span className="share-bar" style={{ width: Math.max(2, (l.ytd / total) * 60) }} />
+              </td>
+            </tr>
+          ))}
+          <tr className="total">
+            <td>Total biaya</td>
+            <td></td>
+            <td>{rp(total)}</td>
+            <td>{rev > 0 ? pctN(total / rev) : "–"}</td>
+            <td>100%</td>
+          </tr>
+        </tbody>
+      </table>
+      <div className="muted small" style={{ padding: "8px 12px 4px" }}>
+        Beban pokok {pctN(cogs / total)} dari total biaya (cenderung ikut volume penjualan), beban usaha {pctN(opex / total)} (cenderung tetap).
+        {payroll !== null && rev > 0 ? ` Biaya gaji dan tenaga kerja ${rpShort(payroll)} = ${pctN(payroll / rev)} dari pendapatan.` : ""}
+      </div>
+    </div>
+  );
+}
+
+function ConcTable({ title, c }: { title: string; c: NonNullable<NonNullable<CompanyModel["journal"]>["revConc"]> }) {
+  const share = (n: number) => (c.total > 0 ? n / c.total : 0);
+  const t1 = c.top[0] ? share(c.top[0].value) : 0;
+  const t3 = share(c.top.slice(0, 3).reduce((s, x) => s + x.value, 0));
+  const t5 = share(c.top.reduce((s, x) => s + x.value, 0));
+  return (
+    <div className="card scroll">
+      <div className="chart-title">{title}</div>
+      <table>
+        <thead>
+          <tr>
+            <th>Pelanggan / keterangan</th>
+            <th>Rp</th>
+            <th>Porsi</th>
+          </tr>
+        </thead>
+        <tbody>
+          {c.top.map((x) => (
+            <tr key={x.name}>
+              <td>{x.name}</td>
+              <td>{rp(x.value)}</td>
+              <td>
+                {pctN(share(x.value))} <span className="share-bar" style={{ width: Math.max(2, share(x.value) * 60) }} />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <div className="muted small" style={{ padding: "8px 12px 4px" }}>
+        Terbesar 1: {pctN(t1)} · 3 terbesar: {pctN(t3)} · 5 terbesar: {pctN(t5)} dari {c.count} keterangan berbeda.
+      </div>
+    </div>
+  );
+}
+
+export function Concentration({ m }: { m: CompanyModel }) {
+  const j = m.journal;
+  if (!j?.revConc?.top.length && !j?.costConc?.top.length) return null;
+  return (
+    <>
+      <div className="grid g-2">
+        {j?.revConc?.top.length ? <ConcTable title="Konsentrasi pendapatan" c={j.revConc} /> : null}
+        {j?.costConc?.top.length ? <ConcTable title="Konsentrasi biaya" c={j.costConc} /> : null}
+      </div>
+      <div className="muted small" style={{ marginTop: 8 }}>
+        Dikelompokkan per nama di awal kolom Keterangan bila berformat "(PT Contoh) ...", selain itu per keterangan penuh. Hasilnya paling akurat bila keterangan memuat nama pelanggan atau pemasok yang konsisten.
+      </div>
+    </>
+  );
+}

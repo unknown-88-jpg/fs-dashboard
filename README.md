@@ -53,6 +53,12 @@ Setelah mengubah env, **Redeploy** supaya terbaca.
 - **Pihak berelasi dan antar perusahaan (IC)**: saldo piutang dan utang, pendapatan dan beban IC; di Ringkasan ada posisi IC seluruh grup.
   Akun dikenali dari kolom "Pos Laporan Keuangan" (mis. "Utang pajak", "Pajak dibayar dimuka", "...pihak berelasi", "Beban keuangan")
   dan dari nama akun (penyusutan, amortisasi, antar perusahaan/IC).
+- **Peringatan dini** (di atas halaman entitas, dan ringkasannya di Ringkasan): kas atau ekuitas negatif, runway pendek,
+  rasio lancar di bawah 1, kontrol data gagal, saldo awal TB nol, akun bersaldo tidak wajar, bulan tanpa transaksi,
+  pendapatan anjlok, rugi berturut-turut, umur piutang panjang, omzet mendekati batas Rp 4,8 M, jurnal ganda atau
+  tanpa keterangan atau bertanggal masa depan, dan konsentrasi pendapatan. Ambang batas ada di `lib/alerts.ts`.
+- **Struktur biaya dan konsentrasi**: porsi tiap pos biaya terhadap pendapatan dan total biaya, serta 5 pelanggan atau pemasok
+  terbesar. Pelanggan dikenali dari nama di awal keterangan jurnal berformat "(PT Contoh) ...".
 - Aging per invoice (30/60/90 hari) belum ada karena TB dan Entry Jurnal tidak memuat nomor invoice dan jatuh tempo.
 - Penyesuaian yang tidak lewat Entry Jurnal (mis. penyusutan dari tab Fixed Asset) hanya ada di laporan bulanan,
   jadi total rentang penuh bisa sedikit beda. Selisihnya ditampilkan di catatan bawah tabel.

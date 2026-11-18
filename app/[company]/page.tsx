@@ -7,7 +7,9 @@ import { CashflowChart, HBar, MonthlyChart } from "@/components/Charts";
 import { Delta, Kpi, Section } from "@/components/Ui";
 import { RangeAnalysis } from "@/components/RangeAnalysis";
 import { Matrix } from "@/components/Matrix";
-import { RelatedPanel, TaxPanel } from "@/components/Panels";
+import { Concentration, CostStructure, RelatedPanel, TaxPanel } from "@/components/Panels";
+import { AlertList } from "@/components/Alerts";
+import { buildAlerts } from "@/lib/alerts";
 import { runwayOf } from "@/lib/analysis";
 
 export const dynamic = "force-dynamic";
@@ -103,6 +105,7 @@ export default async function CompanyPage({ params }: { params: Promise<{ compan
   ];
 
   const rw = runwayOf(m);
+  const alerts = isTb ? buildAlerts(m) : [];
   const failed = m.controls.filter((x) => !x.ok);
   const subs = [
     { name: "Aging piutang (AR) vs TB", s: m.subledger.ar },
@@ -132,7 +135,13 @@ export default async function CompanyPage({ params }: { params: Promise<{ compan
         </div>
       </div>
 
-      <div className="grid g-kpi">
+      {isTb ? (
+        <Section title="Peringatan dini" hint="Pengecekan otomatis atas data dan kinerja bulan laporan">
+          <AlertList alerts={alerts} />
+        </Section>
+      ) : null}
+
+      <div className="grid g-kpi" style={{ marginTop: 16 }}>
         <Kpi
           label="Pendapatan neto (YTD)"
           value={rpShort(pl.revenue.ytd)}
@@ -210,6 +219,15 @@ export default async function CompanyPage({ params }: { params: Promise<{ compan
           </div>
         </Section>
       </div>
+
+      {isTb ? (
+        <Section title="Struktur biaya dan konsentrasi" hint="Porsi tiap pos biaya, dan ketergantungan pada sumber pendapatan atau biaya terbesar">
+          <CostStructure m={m} />
+          <div style={{ marginTop: 16 }}>
+            <Concentration m={m} />
+          </div>
+        </Section>
+      ) : null}
 
       <Section title="Laba rugi ringkas">
         <div className="card scroll">

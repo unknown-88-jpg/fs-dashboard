@@ -13,6 +13,9 @@ import {
   type JournalSummary,
   type JournalTx,
   type CfoData,
+  type Concentration,
+  type JournalDupe,
+  type QualityData,
   type DailyRow,
   type Line,
 } from "./parse";
@@ -257,6 +260,14 @@ export function buildModelFromTB(tbRows: Cell[][], ejRows: Cell[][]): CompanyMod
   const txs: JournalTx[] = [];
   let count = 0;
   let unposted = 0;
+  let noDesc = 0;
+  let futureDated = 0;
+  const dupMap = new Map<string, JournalDupe>();
+  // konsentrasi dikelompokkan per nama di awal keterangan "(PT Contoh) ...", kalau tidak ada pakai keterangan penuh
+  const revGrp = new Map<string, number>();
+  const costGrp = new Map<string, number>();
+  const now = new Date();
+  const todayKey = now.getFullYear() * 10000 + (now.getMonth() + 1) * 100 + now.getDate();
   const nameOf = (no: number | null) => (no !== null ? byNo.get(no)?.name ?? String(no) : "");
 
   for (let r = ejHi + 1; r < ejRows.length; r++) {
@@ -315,9 +326,24 @@ export function buildModelFromTB(tbRows: Cell[][], ejRows: Cell[][]): CompanyMod
       t.icCost += dc(isIcCost);
       dayMap.set(key, t);
     }
-    const desc = String(row[eDesc] ?? "").replace(/\s+/g, " ").trim() || "(tanpa keterangan)";
+    const rawDesc = String(row[eDesc] ?? "").replace(/\s+/g, " ").trim();
+    const desc = rawDesc || "(tanpa keterangan)";
+    if (!rawDesc) noDesc++;
+    if (d.y * 10000 + d.m * 100 + d.d > todayKey) futureDated++;
+    if (amt >= 1_000_000) {
+      const k = `${ymd2(d)}|${amt}|${norm(rawDesc)}|${debNo}|${creNo}`;
+      const cur = dupMap.get(k);
+      if (cur) cur.count++;
+      else dupMap.set(k, { desc, date: fmtDate(d), amount: amt, count: 1 });
+    }
     const dLead = String(debNo)[0];
     const cLead = String(creNo)[0];
+    const grp = rawDesc.match(/^\(([^)]{3,60})\)/)?.[1].trim() ?? desc;
+    const bump = (m: Map<string, number>, v: number) => m.set(grp, (m.get(grp) ?? 0) + v);
+    if (cLead === "4") bump(revGrp, amt);
+    if (dLead === "4") bump(revGrp, -amt);
+    if (dLead === "5" || dLead === "6") bump(costGrp, amt);
+    if (cLead === "5" || cLead === "6") bump(costGrp, -amt);
     if (cLead === "4") revParty.set(desc, (revParty.get(desc) ?? 0) + amt);
     if (dLead === "4") revParty.set(desc, (revParty.get(desc) ?? 0) - amt);
     if (dLead === "5" || dLead === "6") costParty.set(desc, (costParty.get(desc) ?? 0) + amt);
@@ -337,7 +363,20 @@ export function buildModelFromTB(tbRows: Cell[][], ejRows: Cell[][]): CompanyMod
       .sort((a, b) => b[1] - a[1])
       .slice(0, 8)
       .map(([name, value]) => ({ name, value }));
+  const conc = (m: Map<string, number>): Concentration => {
+    const pos = [...m.entries()].filter(([, v]) => v > 0.5).sort((a, b) => b[1] - a[1]);
+    return {
+      total: pos.reduce((s, [, v]) => s + v, 0),
+      count: pos.length,
+      top: pos.slice(0, 5).map(([name, value]) => ({ name, value })),
+    };
+  };
   const journal: JournalSummary = {
+    revConc: conc(revGrp),
+    costConc: conc(costGrp),
+    noDesc,
+    futureDated,
+    dupes: [...dupMap.values()].filter((x) => x.count > 1).sort((a, b) => b.amount * b.count - a.amount * a.count).slice(0, 10),
     count,
     perMonth: perMonthCount,
     topRevenueParties: top(revParty),
@@ -415,6 +454,29 @@ export function buildModelFromTB(tbRows: Cell[][], ejRows: Cell[][]): CompanyMod
     })),
   };
 
+  // ---------- 5c. Kualitas data ----------
+  const isContra = (a: Acct) => /^akum|akumulasi|cadangan kerugian|penyisihan/.test(norm(a.name));
+  const qi = reportIdx >= 0 ? reportIdx : n - 1;
+  const abnormal: QualityData["abnormal"] = [];
+  for (const a of N) {
+    const b = bal(a, qi);
+    if (Math.abs(b) < 1000) continue;
+    if (lead(a) === "1" && !isContra(a) && b < 0) abnormal.push({ name: a.name, bal: b, expect: "debit" });
+    if (lead(a) === "2" && b > 0) abnormal.push({ name: a.name, bal: -b, expect: "kredit" });
+  }
+  abnormal.sort((x, y) => Math.abs(y.bal) - Math.abs(x.bal));
+  const firstAct = activeMonths[0];
+  const lastAct = activeMonths[activeMonths.length - 1];
+  const emptyMonths =
+    activeMonths.length > 1
+      ? months.filter((_, i) => i > firstAct && i < lastAct && !activeMonths.includes(i))
+      : [];
+  const quality: QualityData = {
+    abnormal: abnormal.slice(0, 12),
+    openingZero: N.length > 0 && N.every((a) => Math.abs(a.open) < 0.5) && activeMonths.length > 0,
+    emptyMonths,
+  };
+
   // ---------- 6. Arus kas (tidak langsung) ----------
   const opF = [...netProfit];
   const invF = zeros(n);
@@ -477,6 +539,7 @@ export function buildModelFromTB(tbRows: Cell[][], ejRows: Cell[][]): CompanyMod
         (cashBegin + [...dayMap.values()].reduce((s, r) => s + r.cashIn - r.cashOut, 0)),
     },
     cfo,
+    quality,
     openBal: {
       taxIn: N.filter(isTaxPre).reduce((s, a) => s + a.open, 0),
       taxPay: -N.filter(isTaxPayA).reduce((s, a) => s + a.open, 0),

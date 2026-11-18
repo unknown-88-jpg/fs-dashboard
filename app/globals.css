@@ -212,3 +212,12 @@ td .hint { font-weight: 400; max-width: 380px; }
 .bar-fill { height: 100%; border-radius: 99px; background: var(--success); }
 .bar-fill.warn { background: var(--warning); }
 .bar-fill.bad { background: var(--destructive); }
+
+/* Peringatan dini */
+.alert-summary { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+.alert-row { display: grid; grid-template-columns: 78px 1fr; gap: 12px; align-items: start; padding: 12px 0; border-bottom: 1px solid var(--border); }
+.alert-row:last-child { border-bottom: none; }
+.alert-row .badge { justify-self: start; }
+.alert-title { font-weight: 500; }
+.share-bar { display: inline-block; height: 6px; border-radius: 99px; background: var(--chart-1); vertical-align: middle; min-width: 2px; }
+td.alert-top { text-align: left; white-space: normal; min-width: 260px; }

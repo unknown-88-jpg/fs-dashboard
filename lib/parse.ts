@@ -128,6 +128,24 @@ export interface JournalTx {
   credit: string;
   amount: number;
 }
+export interface Concentration {
+  total: number; // jumlah semua sisi positif
+  count: number; // jumlah keterangan berbeda
+  top: JournalParty[]; // 5 terbesar
+}
+export interface JournalDupe {
+  desc: string;
+  date: string; // dd-mm-yyyy
+  amount: number;
+  count: number;
+}
+/** Temuan kualitas data dari TB (saldo akun yang menyimpang, saldo awal kosong, bulan tanpa jurnal). */
+export interface QualityData {
+  abnormal: { name: string; bal: number; expect: "debit" | "kredit" }[];
+  openingZero: boolean;
+  emptyMonths: string[];
+}
+
 export interface JournalSummary {
   count: number;
   perMonth: number[]; // jumlah baris jurnal per bulan
@@ -135,6 +153,11 @@ export interface JournalSummary {
   topCostParties: JournalParty[]; // keterangan dengan beban pokok/usaha terbesar
   largest: JournalTx[]; // transaksi terbesar
   unposted: number; // baris dengan akun tidak ada di COA / akun header
+  revConc?: Concentration; // konsentrasi pendapatan per keterangan jurnal
+  costConc?: Concentration;
+  noDesc?: number; // baris tanpa keterangan
+  dupes?: JournalDupe[]; // baris yang tampak ganda (tanggal, nominal, keterangan, akun sama; nominal ≥ Rp 1 jt)
+  futureDated?: number; // baris bertanggal setelah hari ini
 }
 export interface SubledgerStatus {
   status: string | null;
@@ -223,7 +246,8 @@ export interface CompanyModel {
   journal?: JournalSummary;
   daily?: DailyRow[]; // urut tanggal, hanya hari yang punya transaksi
   openBal?: { cash: number; ar: number; ap: number; taxIn: number; taxPay: number; rpRec: number; rpPay: number };
-  cfo?: CfoData; // saldo awal periode TB
+  cfo?: CfoData;
+  quality?: QualityData; // saldo awal periode TB
   // selisih TB vs Entry Jurnal (mis. penyusutan dari tab Fixed Asset yang tidak lewat jurnal)
   gap?: { net: number; cash: number };
   bs: { current: BalanceSnapshot; previous: BalanceSnapshot | null; perMonth: BalanceSnapshot[] };
