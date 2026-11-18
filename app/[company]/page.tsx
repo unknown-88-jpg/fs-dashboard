@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getCompany } from "@/lib/companies";
+import { getCompany, sheetUrlOf } from "@/lib/companies";
 import { safeModel } from "@/lib/data";
 import type { Line } from "@/lib/parse";
 import { pct, rp, rpShort, wibTime } from "@/lib/format";
@@ -48,7 +48,7 @@ export default async function CompanyPage({ params }: { params: Promise<{ compan
   const { pl, bs, cf } = m;
   const idx = m.reportIdx;
   const act = m.activeMonths;
-  const sheetUrl = c.sheetId ? `https://docs.google.com/spreadsheets/d/${c.sheetId}/edit` : null;
+  const sheetUrl = sheetUrlOf(c);
   const isTb = m.source === "tb";
 
   if (idx < 0) {

@@ -63,6 +63,11 @@ Setelah mengubah env, **Redeploy** supaya terbaca.
 - Penyesuaian yang tidak lewat Entry Jurnal (mis. penyusutan dari tab Fixed Asset) hanya ada di laporan bulanan,
   jadi total rentang penuh bisa sedikit beda. Selisihnya ditampilkan di catatan bawah tabel.
 
+## Tombol "Buka spreadsheet"
+
+Tampil di semua entitas. Kalau `<PREFIX>_SHEET_ID` diisi (mis. `DTY_SHEET_ID`, ID di antara `/d/` dan `/edit` pada link spreadsheet),
+tombol membuka halaman edit. Kalau tidak, tombol memakai link publish-to-web, yang membuka tampilan publikasi (hanya baca).
+
 ## Catatan penting
 
 - Link publish-to-web bisa dibaca **siapa pun yang punya link**, tanpa login. Jangan dibagikan. Untuk menutup:

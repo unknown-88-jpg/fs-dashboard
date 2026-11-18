@@ -85,3 +85,20 @@ export const getCompany = (slug: string) => COMPANIES.find((c) => c.slug === slu
 /** Kunci cache: berubah kalau URL sumber berubah. */
 export const sourceKey = (c: Company) =>
   c.source.kind === "script" ? `s:${c.source.url ?? ""}` : `c:${c.source.tbUrl ?? ""}|${c.source.ejUrl ?? ""}`;
+
+/**
+ * Link tombol "Buka spreadsheet". Prioritas:
+ * 1. <PREFIX>_SHEET_ID (atau default di kode) -> halaman edit spreadsheet
+ * 2. ID dokumen yang terbaca dari link CSV publish-to-web berbentuk /spreadsheets/d/<id>/pub... -> halaman edit
+ * 3. Link publish-to-web berbentuk /spreadsheets/d/e/<id>/pub... -> tampilan publikasi (hanya baca)
+ */
+export function sheetUrlOf(c: Company): string | null {
+  if (c.sheetId) return `https://docs.google.com/spreadsheets/d/${c.sheetId}/edit`;
+  const u = c.source.kind === "csv" ? c.source.tbUrl ?? c.source.ejUrl : undefined;
+  if (!u) return null;
+  const pub = u.match(/^https:\/\/docs\.google\.com\/spreadsheets\/d\/e\/([\w-]+)\//);
+  if (pub) return `https://docs.google.com/spreadsheets/d/e/${pub[1]}/pubhtml`;
+  const doc = u.match(/^https:\/\/docs\.google\.com\/spreadsheets\/d\/([\w-]+)\//);
+  if (doc) return `https://docs.google.com/spreadsheets/d/${doc[1]}/edit`;
+  return null;
+}
