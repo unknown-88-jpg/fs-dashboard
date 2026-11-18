@@ -23,14 +23,6 @@ function sourceFor(prefix: string): Source {
 
 export const COMPANIES: Company[] = [
   {
-    slug: "fuku",
-    name: "PT Fuku Aksa Arta",
-    short: "FUKU",
-    prefix: "FUKU",
-    sheetId: process.env.FUKU_SHEET_ID || "1oPeHBC6tomdLMmOCZtiaALQ_xoRGu0SQtI6tbZAWL6o",
-    source: sourceFor("FUKU"),
-  },
-  {
     slug: "hitaloka",
     name: "PT Hita Loka Manava",
     short: "Hitaloka",

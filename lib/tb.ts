@@ -109,7 +109,7 @@ export function buildModelFromTB(tbRows: Cell[][], ejRows: Cell[][]): CompanyMod
     throw new Error("Tab TB: kolom Pos Laporan Keuangan / Tipe / Laporan tidak ditemukan.");
   }
   // Dua template TB didukung:
-  //  A) satu kolom "Mutasi Neto Bulanan (D+ / K-)" per bulan (Dorma, FUKU)
+  //  A) satu kolom "Mutasi Neto Bulanan (D+ / K-)" per bulan (Dorma)
   //  B) empat kolom per bulan: Mutasi D, Mutasi K, Saldo D, Saldo K (Hitaloka)
   interface MonthSpec {
     ymd: YMD;
