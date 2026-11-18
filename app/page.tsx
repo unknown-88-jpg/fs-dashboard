@@ -4,8 +4,17 @@ import { safeModel } from "@/lib/data";
 import { pct, rp, rpShort, wibTime } from "@/lib/format";
 import { Kpi, Section } from "@/components/Ui";
 import { RangeAnalysis } from "@/components/RangeAnalysis";
+import { runwayOf } from "@/lib/analysis";
 
 export const dynamic = "force-dynamic";
+
+function runwayText(m: Parameters<typeof runwayOf>[0]) {
+  const r = runwayOf(m);
+  if (!r) return "–";
+  if (r.state === "negatif") return "Kas negatif";
+  if (r.state === "aman") return "Aman";
+  return `${new Intl.NumberFormat("id-ID", { maximumFractionDigits: 1 }).format(r.months ?? 0)} bln`;
+}
 
 export default async function Home() {
   const results = await Promise.all(COMPANIES.map(async (c) => ({ c, r: await safeModel(c) })));
@@ -84,6 +93,7 @@ export default async function Home() {
                     <th>Laba bersih</th>
                     <th>Net margin</th>
                     <th>Kas</th>
+                    <th>Runway</th>
                     <th>Total aset</th>
                     <th>Ekuitas</th>
                   </tr>
@@ -101,6 +111,7 @@ export default async function Home() {
                       <td className={m.pl.netProfit.ytd < 0 ? "neg" : ""}>{rp(m.pl.netProfit.ytd)}</td>
                       <td>{pct(m.pl.revenue.ytd ? m.pl.netProfit.ytd / m.pl.revenue.ytd : null)}</td>
                       <td className={m.bs.current.cash < 0 ? "neg" : ""}>{rp(m.bs.current.cash)}</td>
+                      <td>{runwayText(m)}</td>
                       <td>{rp(m.bs.current.totalAssets)}</td>
                       <td className={m.bs.current.equity < 0 ? "neg" : ""}>{rp(m.bs.current.equity)}</td>
                     </tr>
@@ -112,6 +123,7 @@ export default async function Home() {
                     <td className={tot.net < 0 ? "neg" : ""}>{rp(tot.net)}</td>
                     <td>{pct(tot.revenue ? tot.net / tot.revenue : null)}</td>
                     <td className={tot.cash < 0 ? "neg" : ""}>{rp(tot.cash)}</td>
+                    <td></td>
                     <td>{rp(tot.assets)}</td>
                     <td className={tot.equity < 0 ? "neg" : ""}>{rp(tot.equity)}</td>
                   </tr>
@@ -121,6 +133,8 @@ export default async function Home() {
           </Section>
         </>
       ) : null}
+
+      {oks.some((x) => x.m.cfo) ? <IcSection oks={oks} totRevenue={tot.revenue} /> : null}
 
       <Section title="Per entitas">
       <div className="grid g-2">
@@ -178,5 +192,77 @@ export default async function Home() {
         Total gabungan adalah penjumlahan sederhana per entitas (tanpa eliminasi antar entitas, dan periode tiap entitas bisa berbeda), bukan laporan konsolidasi resmi.
       </footer>
     </>
+  );
+}
+
+type Ok = { c: { slug: string; short: string }; m: Parameters<typeof runwayOf>[0] };
+
+function IcSection({ oks, totRevenue }: { oks: Ok[]; totRevenue: number }) {
+  const rows = oks.flatMap(({ c, m }) => {
+    const f = m.cfo;
+    if (!f || m.reportIdx < 0) return [];
+    const i = m.reportIdx;
+    return [
+      {
+        c,
+        icRec: f.icRec[i],
+        icPay: f.icPay[i],
+        othRec: f.relRec[i] - f.icRec[i],
+        othPay: f.relPay[i] - f.icPay[i],
+        icRev: f.icRev.reduce((s, v) => s + v, 0),
+        icCost: f.icCost.reduce((s, v) => s + v, 0),
+      },
+    ];
+  });
+  const sum = (k: "icRec" | "icPay" | "othRec" | "othPay" | "icRev" | "icCost") => rows.reduce((a, r) => a + r[k], 0);
+  const mismatch = sum("icRec") - sum("icPay");
+  return (
+    <Section title="Posisi antar entitas (IC)" hint="Saldo bulan laporan tiap entitas; pendapatan dan beban IC sejak awal periode">
+      <div className="card scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Entitas</th>
+              <th>Piutang IC</th>
+              <th>Utang IC</th>
+              <th>Piutang berelasi lain</th>
+              <th>Utang berelasi lain</th>
+              <th>Pendapatan IC</th>
+              <th>Beban IC</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.c.slug}>
+                <td>
+                  <Link href={`/${r.c.slug}`}>{r.c.short}</Link>
+                </td>
+                <td>{rp(r.icRec)}</td>
+                <td>{rp(r.icPay)}</td>
+                <td>{rp(r.othRec)}</td>
+                <td>{rp(r.othPay)}</td>
+                <td>{rp(r.icRev)}</td>
+                <td>{rp(r.icCost)}</td>
+              </tr>
+            ))}
+            <tr className="total">
+              <td>Total</td>
+              <td>{rp(sum("icRec"))}</td>
+              <td>{rp(sum("icPay"))}</td>
+              <td>{rp(sum("othRec"))}</td>
+              <td>{rp(sum("othPay"))}</td>
+              <td>{rp(sum("icRev"))}</td>
+              <td>{rp(sum("icCost"))}</td>
+            </tr>
+          </tbody>
+        </table>
+        <div className="muted small" style={{ padding: "8px 12px 4px" }}>
+          Piutang IC dikurangi utang IC seluruh grup = {rp(mismatch)}
+          {Math.abs(mismatch) > 1000 ? " (seharusnya nol bila semua entitas mencatat pasangan transaksinya; periksa pencatatan atau periode yang berbeda)" : " (cocok)"}.
+          Pendapatan neto gabungan setelah mengeliminasi pendapatan IC: {rpShort(totRevenue - sum("icRev"))}; laba bersih tidak berubah
+          bila beban IC pasangannya ikut dieliminasi.
+        </div>
+      </div>
+    </Section>
   );
 }

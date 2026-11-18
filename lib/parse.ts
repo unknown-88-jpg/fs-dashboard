@@ -170,6 +170,32 @@ export interface DailyRow {
   apNew: number; // tagihan baru dari pemasok (kredit utang usaha)
   apPaid: number; // pembayaran utang (debit utang usaha)
   n: number; // jumlah baris jurnal
+  dep: number; // penyusutan + amortisasi yang lewat jurnal (beban, positif)
+  int: number; // beban keuangan
+  pay: number; // beban gaji dan tenaga kerja
+  taxIn: number; // perubahan pajak dibayar dimuka (PPN masukan, PPh dibayar dimuka)
+  taxPay: number; // perubahan utang pajak (positif = bertambah)
+  rpRec: number; // perubahan piutang pihak berelasi
+  rpPay: number; // perubahan utang pihak berelasi
+  icRev: number; // pendapatan antar perusahaan
+  icCost: number; // beban antar perusahaan
+}
+
+/** Data tambahan untuk analisa CFO (pajak, pihak berelasi, beban yang dipisah). Hanya sumber TB. */
+export interface CfoData {
+  dep: number[]; // per bulan, beban (positif)
+  interest: number[];
+  payroll: number[];
+  taxPrepaid: number[]; // saldo pajak dibayar dimuka akhir bulan
+  taxPayable: number[]; // saldo utang pajak akhir bulan
+  taxRows: { name: string; kind: "dimuka" | "utang"; cur: number; prev: number | null }[];
+  relRec: number[]; // saldo piutang pihak berelasi
+  relPay: number[]; // saldo utang pihak berelasi
+  icRec: number[]; // bagian antar perusahaan (IC) saja
+  icPay: number[];
+  icRev: number[]; // pendapatan antar perusahaan per bulan
+  icCost: number[]; // beban antar perusahaan per bulan
+  relRows: { name: string; side: "piutang" | "utang"; cur: number; prev: number | null }[];
 }
 
 export interface CompanyModel {
@@ -196,7 +222,8 @@ export interface CompanyModel {
   cogsLines?: Line[];
   journal?: JournalSummary;
   daily?: DailyRow[]; // urut tanggal, hanya hari yang punya transaksi
-  openBal?: { cash: number; ar: number; ap: number }; // saldo awal periode TB
+  openBal?: { cash: number; ar: number; ap: number; taxIn: number; taxPay: number; rpRec: number; rpPay: number };
+  cfo?: CfoData; // saldo awal periode TB
   // selisih TB vs Entry Jurnal (mis. penyusutan dari tab Fixed Asset yang tidak lewat jurnal)
   gap?: { net: number; cash: number };
   bs: { current: BalanceSnapshot; previous: BalanceSnapshot | null; perMonth: BalanceSnapshot[] };

@@ -48,6 +48,12 @@ Setelah mengubah env, **Redeploy** supaya terbaca.
   Ringkasan menampilkan versi gabungan semua entitas.
 - **Matriks analisa**: rasio likuiditas, solvabilitas, profitabilitas, serta umur piutang (DSO) dan umur utang (DPO)
   per bulan, dengan status Sehat/Waspada/Perlu perhatian untuk bulan terakhir. Ambang batasnya ada di `lib/analysis.ts`.
+- **Indikator CFO** (di Matriks analisa dan tab "Indikator CFO" pada rentang tanggal): runway dan burn kas,
+  siklus konversi kas (CCC), konversi kas dari arus kas operasi, EBITDA, cakupan bunga, beban gaji, titik impas.
+- **Pajak**: saldo PPN dan PPh (dibayar dimuka dan utang), jatuh tempo masa pajak, dan monitor omzet terhadap batas Rp 4,8 M.
+- **Pihak berelasi dan antar perusahaan (IC)**: saldo piutang dan utang, pendapatan dan beban IC; di Ringkasan ada posisi IC seluruh grup.
+  Akun dikenali dari kolom "Pos Laporan Keuangan" (mis. "Utang pajak", "Pajak dibayar dimuka", "...pihak berelasi", "Beban keuangan")
+  dan dari nama akun (penyusutan, amortisasi, antar perusahaan/IC).
 - Aging per invoice (30/60/90 hari) belum ada karena TB dan Entry Jurnal tidak memuat nomor invoice dan jatuh tempo.
 - Penyesuaian yang tidak lewat Entry Jurnal (mis. penyusutan dari tab Fixed Asset) hanya ada di laporan bulanan,
   jadi total rentang penuh bisa sedikit beda. Selisihnya ditampilkan di catatan bawah tabel.

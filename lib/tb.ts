@@ -12,6 +12,7 @@ import {
   type Control,
   type JournalSummary,
   type JournalTx,
+  type CfoData,
   type DailyRow,
   type Line,
 } from "./parse";
@@ -215,6 +216,21 @@ export function buildModelFromTB(tbRows: Cell[][], ejRows: Cell[][]): CompanyMod
   const cogsLines = group(cogsAcc, 1).filter(nz).sort((a, b) => b.ytd - a.ytd);
   const opexLines = group(opexAcc, 1).filter(nz).sort((a, b) => b.ytd - a.ytd);
 
+  // ---------- klasifikasi akun untuk analisa CFO ----------
+  const leadN = (a: Acct | undefined) => (a ? String(a.no)[0] : "");
+  const txt = (a: Acct) => norm(a.pos + " " + a.name);
+  const isDep = (a?: Acct) => !!a && a.rep === "L" && /penyusutan|amortisasi/.test(txt(a));
+  const isInt = (a?: Acct) => !!a && a.rep === "L" && norm(a.pos) === "beban keuangan";
+  const isPay = (a?: Acct) =>
+    !!a && a.rep === "L" && ["5", "6"].includes(leadN(a)) && /beban karyawan|tenaga kerja langsung/.test(norm(a.pos));
+  const isTaxPre = (a?: Acct) => !!a && a.rep === "N" && leadN(a) === "1" && norm(a.pos) === "pajak dibayar dimuka";
+  const isTaxPayA = (a?: Acct) => !!a && a.rep === "N" && leadN(a) === "2" && norm(a.pos) === "utang pajak";
+  const isRelRec = (a?: Acct) => !!a && a.rep === "N" && leadN(a) === "1" && /pihak berelasi/.test(norm(a.pos));
+  const isRelPay = (a?: Acct) => !!a && a.rep === "N" && leadN(a) === "2" && /pihak berelasi/.test(norm(a.pos));
+  const isIcName = (a: Acct) => /antar perusahaan|\(ic\)/.test(norm(a.name));
+  const isIcRev = (a?: Acct) => !!a && a.rep === "L" && leadN(a) === "4" && isIcName(a);
+  const isIcCost = (a?: Acct) => !!a && a.rep === "L" && ["5", "6"].includes(leadN(a)) && isIcName(a);
+
   // ---------- 4. Entry Jurnal ----------
   const ejHi = ejRows.findIndex((r, i) => i < 8 && r.some((c) => norm(c) === "tanggal"));
   const ej = ejHi >= 0 ? ejRows[ejHi] : [];
@@ -264,7 +280,7 @@ export function buildModelFromTB(tbRows: Cell[][], ejRows: Cell[][]): CompanyMod
       const key = ymd2(d);
       const t =
         dayMap.get(key) ??
-        { d: key, rev: 0, cogs: 0, opex: 0, other: 0, cashIn: 0, cashOut: 0, arNew: 0, arPaid: 0, apNew: 0, apPaid: 0, n: 0 };
+        { d: key, rev: 0, cogs: 0, opex: 0, other: 0, cashIn: 0, cashOut: 0, arNew: 0, arPaid: 0, apNew: 0, apPaid: 0, n: 0, dep: 0, int: 0, pay: 0, taxIn: 0, taxPay: 0, rpRec: 0, rpPay: 0, icRev: 0, icCost: 0 };
       const da = byNo.get(debNo!);
       const ca = byNo.get(creNo!);
       const dl = String(debNo)[0];
@@ -286,6 +302,17 @@ export function buildModelFromTB(tbRows: Cell[][], ejRows: Cell[][]): CompanyMod
       if (isArA(ca)) t.arPaid += amt;
       if (isApA(ca)) t.apNew += amt;
       if (isApA(da)) t.apPaid += amt;
+      const dc = (f: (a?: Acct) => boolean) => (f(da) ? amt : 0) - (f(ca) ? amt : 0); // debit +, kredit -
+      const cd = (f: (a?: Acct) => boolean) => (f(ca) ? amt : 0) - (f(da) ? amt : 0); // kredit +, debit -
+      t.dep += dc(isDep);
+      t.int += dc(isInt);
+      t.pay += dc(isPay);
+      t.taxIn += dc(isTaxPre);
+      t.taxPay += cd(isTaxPayA);
+      t.rpRec += dc(isRelRec);
+      t.rpPay += cd(isRelPay);
+      t.icRev += cd(isIcRev);
+      t.icCost += dc(isIcCost);
       dayMap.set(key, t);
     }
     const desc = String(row[eDesc] ?? "").replace(/\s+/g, " ").trim() || "(tanpa keterangan)";
@@ -347,6 +374,7 @@ export function buildModelFromTB(tbRows: Cell[][], ejRows: Cell[][]): CompanyMod
   };
   const perMonthBs = zeros(n).map((_, i) => snap(i));
 
+
   // bulan aktif = ada mutasi laba rugi atau ada baris jurnal
   const activeMonths = zeros(n)
     .map((_, i) => i)
@@ -354,6 +382,38 @@ export function buildModelFromTB(tbRows: Cell[][], ejRows: Cell[][]): CompanyMod
   const reportIdx = activeMonths.length ? activeMonths[activeMonths.length - 1] : -1;
   const curBs = perMonthBs[reportIdx >= 0 ? reportIdx : 0];
   const prevBs = reportIdx > 0 ? perMonthBs[reportIdx - 1] : null;
+
+  // ---------- 5b. Data analisa CFO ----------
+  const mutSum = (f: (a?: Acct) => boolean) => zeros(n).map((_, i) => accts.filter(f).reduce((s, a) => s + a.mut[i], 0));
+  const balSum = (f: (a?: Acct) => boolean, sign: 1 | -1) =>
+    zeros(n).map((_, i) => sign * accts.filter(f).reduce((s, a) => s + bal(a, i), 0));
+  const lastI = reportIdx >= 0 ? reportIdx : n - 1;
+  const rowsOf = <K extends string>(f: (a?: Acct) => boolean, sign: 1 | -1, kind: K) =>
+    accts
+      .filter(f)
+      .map((a) => ({ a, cur: sign * bal(a, lastI), prev: lastI > 0 ? sign * bal(a, lastI - 1) : null }))
+      .filter((x) => Math.abs(x.cur) > 0.5 || Math.abs(x.prev ?? 0) > 0.5)
+      .map((x) => ({ name: x.a.name, kind, cur: x.cur, prev: x.prev }));
+  const cfo: CfoData = {
+    dep: mutSum(isDep),
+    interest: mutSum(isInt),
+    payroll: mutSum(isPay),
+    taxPrepaid: balSum(isTaxPre, 1),
+    taxPayable: balSum(isTaxPayA, -1),
+    taxRows: [...rowsOf(isTaxPre, 1, "dimuka" as const), ...rowsOf(isTaxPayA, -1, "utang" as const)],
+    relRec: balSum(isRelRec, 1),
+    relPay: balSum(isRelPay, -1),
+    icRec: balSum((a) => isRelRec(a) && isIcName(a!), 1),
+    icPay: balSum((a) => isRelPay(a) && isIcName(a!), -1),
+    icRev: mutSum(isIcRev).map((v) => -v),
+    icCost: mutSum(isIcCost),
+    relRows: [...rowsOf(isRelRec, 1, "piutang" as const), ...rowsOf(isRelPay, -1, "utang" as const)].map((r) => ({
+      name: r.name,
+      side: r.kind,
+      cur: r.cur,
+      prev: r.prev,
+    })),
+  };
 
   // ---------- 6. Arus kas (tidak langsung) ----------
   const opF = [...netProfit];
@@ -416,7 +476,12 @@ export function buildModelFromTB(tbRows: Cell[][], ejRows: Cell[][]): CompanyMod
         perMonthBs[n - 1].cash -
         (cashBegin + [...dayMap.values()].reduce((s, r) => s + r.cashIn - r.cashOut, 0)),
     },
+    cfo,
     openBal: {
+      taxIn: N.filter(isTaxPre).reduce((s, a) => s + a.open, 0),
+      taxPay: -N.filter(isTaxPayA).reduce((s, a) => s + a.open, 0),
+      rpRec: N.filter(isRelRec).reduce((s, a) => s + a.open, 0),
+      rpPay: -N.filter(isRelPay).reduce((s, a) => s + a.open, 0),
       cash: cashBegin,
       ar: N.filter(isArA).reduce((s, a) => s + a.open, 0),
       ap: -N.filter(isApA).reduce((s, a) => s + a.open, 0),
