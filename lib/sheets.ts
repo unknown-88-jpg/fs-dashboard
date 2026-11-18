@@ -40,7 +40,7 @@ export async function fetchScript(c: Company, url?: string): Promise<SheetData> 
 export async function fetchCsv(c: Company, which: "tb" | "ej", url?: string): Promise<Cell[][]> {
   const mock = await mockDir();
   if (mock) return parseCsv(mock.read(`${c.slug}-${which}.csv`));
-  const label = `${c.short.toUpperCase()}_${which.toUpperCase()}_CSV_URL (tab ${which === "tb" ? "TB" : "Entry Jurnal"})`;
+  const label = `${c.prefix}_${which.toUpperCase()}_CSV_URL (tab ${which === "tb" ? "TB" : "Entry Jurnal"})`;
   if (!url) throw new Error(`${label} belum di-set di Environment Variables.`);
   let u: URL;
   try {
