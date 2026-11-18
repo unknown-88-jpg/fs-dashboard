@@ -1,6 +1,6 @@
 # Dashboard Keuangan (Google Sheets → Vercel)
 
-Dashboard Next.js untuk tujuh entitas: **FUKU**, **Hitaloka**, **Dorma**, **Lixus PT**, **Lixus CV**, **NEC Creative**, **NEC Commercial**, **DTY**. Data dibaca dari dua tab tiap spreadsheet,
+Dashboard Next.js untuk tujuh entitas: **Hitaloka**, **Dorma**, **Lixus PT**, **Lixus CV**, **NEC Creative**, **NEC Commercial**, **DTY**. Data dibaca dari dua tab tiap spreadsheet,
 **TB** dan **Entry Jurnal**, lewat link *Publish to web* (CSV). Tanpa Google Cloud, tanpa Apps Script, tanpa token.
 
 Laba rugi, neraca, dan arus kas (tidak langsung) dihitung dari mapping akun di TB
@@ -17,7 +17,7 @@ Data di-cache 10 menit (`SHEETS_CACHE_SECONDS`). Tombol **Refresh** membuang cac
 4. Jangan centang "Batasi akses ke ..." (kalau dicentang, server tidak bisa membaca CSV).
 5. Biarkan "Terbitkan ulang secara otomatis saat perubahan dibuat" tercentang.
 
-Ada 14 link: TB dan Entry Jurnal untuk masing-masing dari 8 entitas.
+Ada 14 link: TB dan Entry Jurnal untuk masing-masing dari 7 entitas.
 
 ## 2. Deploy ke Vercel (via GitHub)
 
@@ -25,7 +25,6 @@ Import repo di vercel.com/new, lalu isi Environment Variables:
 
 | Nama | Isi |
 |---|---|
-| `FUKU_TB_CSV_URL` / `FUKU_EJ_CSV_URL` | link CSV tab TB / Entry Jurnal FUKU |
 | `HITALOKA_TB_CSV_URL` / `HITALOKA_EJ_CSV_URL` | link CSV tab TB / Entry Jurnal Hitaloka |
 | `DORMA_TB_CSV_URL` / `DORMA_EJ_CSV_URL` | link CSV tab TB / Entry Jurnal Dorma |
 | `LIXUS_PT_TB_CSV_URL` / `LIXUS_PT_EJ_CSV_URL` | link CSV tab TB / Entry Jurnal PT Lixus |
@@ -48,6 +47,12 @@ Setelah mengubah env, **Redeploy** supaya terbaca.
   Ringkasan menampilkan versi gabungan semua entitas.
 - **Matriks analisa**: rasio likuiditas, solvabilitas, profitabilitas, serta umur piutang (DSO) dan umur utang (DPO)
   per bulan, dengan status Sehat/Waspada/Perlu perhatian untuk bulan terakhir. Ambang batasnya ada di `lib/analysis.ts`.
+- **Indikator CFO** (di Matriks analisa dan tab "Indikator CFO" pada rentang tanggal): runway dan burn kas,
+  siklus konversi kas (CCC), konversi kas dari arus kas operasi, EBITDA, cakupan bunga, beban gaji, titik impas.
+- **Pajak**: saldo PPN dan PPh (dibayar dimuka dan utang), jatuh tempo masa pajak, dan monitor omzet terhadap batas Rp 4,8 M.
+- **Pihak berelasi dan antar perusahaan (IC)**: saldo piutang dan utang, pendapatan dan beban IC; di Ringkasan ada posisi IC seluruh grup.
+  Akun dikenali dari kolom "Pos Laporan Keuangan" (mis. "Utang pajak", "Pajak dibayar dimuka", "...pihak berelasi", "Beban keuangan")
+  dan dari nama akun (penyusutan, amortisasi, antar perusahaan/IC).
 - Aging per invoice (30/60/90 hari) belum ada karena TB dan Entry Jurnal tidak memuat nomor invoice dan jatuh tempo.
 - Penyesuaian yang tidak lewat Entry Jurnal (mis. penyusutan dari tab Fixed Asset) hanya ada di laporan bulanan,
   jadi total rentang penuh bisa sedikit beda. Selisihnya ditampilkan di catatan bawah tabel.
@@ -60,7 +65,7 @@ Setelah mengubah env, **Redeploy** supaya terbaca.
 - Panel "Pengecekan data" memeriksa: total mutasi TB = 0, aset = liabilitas + ekuitas, dan baris jurnal yang
   tidak terposting (akun tidak ada di COA atau tanggal di luar periode).
 - Status aging AR/AP tidak lagi ditampilkan (sumbernya tab AR/AP, yang tidak dibaca).
-- Dua template TB didukung: (A) kolom "Mutasi Neto Bulanan (D+ / K-)" (Dorma, FUKU) dan
+- Dua template TB didukung: (A) kolom "Mutasi Neto Bulanan (D+ / K-)" (Dorma) dan
   (B) empat kolom per bulan Mutasi D / Mutasi K / Saldo D / Saldo K (Hitaloka). Jangan ganti teks header
   (`*NoAkun`, `Pos Laporan Keuangan`, `Pos Arus Kas`, `Tipe`, `Laporan`) dan struktur blok bulan.
 

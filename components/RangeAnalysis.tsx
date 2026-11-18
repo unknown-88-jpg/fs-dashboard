@@ -7,7 +7,7 @@ import { MonthlyChart, BalanceChart } from "@/components/Charts";
 export interface RangeSeries {
   name: string;
   daily: DailyRow[];
-  openBal: { cash: number; ar: number; ap: number };
+  openBal: { cash: number; ar: number; ap: number; taxIn: number; taxPay: number; rpRec: number; rpPay: number };
   gap?: { net: number; cash: number };
 }
 
@@ -18,6 +18,10 @@ const INTERVALS: { v: Interval; l: string }[] = [
   { v: "month", l: "Bulanan" },
   { v: "quarter", l: "Kuartal" },
 ];
+const emptyRow = (d: string): DailyRow => ({
+  d, rev: 0, cogs: 0, opex: 0, other: 0, cashIn: 0, cashOut: 0, arNew: 0, arPaid: 0, apNew: 0, apPaid: 0, n: 0,
+  dep: 0, int: 0, pay: 0, taxIn: 0, taxPay: 0, rpRec: 0, rpPay: 0, icRev: 0, icCost: 0,
+});
 const DAY = 86400000;
 const toMs = (s: string) => Date.parse(s + "T00:00:00Z");
 const toStr = (ms: number) => new Date(ms).toISOString().slice(0, 10);
@@ -72,6 +76,18 @@ interface Bucket {
   cash: number;
   ar: number;
   ap: number;
+  // indikator CFO
+  ebitda: number;
+  interest: number;
+  payroll: number;
+  taxIn: number; // saldo pajak dibayar dimuka
+  taxPay: number; // saldo utang pajak
+  rpRec: number; // saldo piutang berelasi
+  rpPay: number; // saldo utang berelasi
+  icRev: number;
+  icCost: number;
+  burn: number | null; // burn bulanan (rata-rata 30 hari terakhir), null = kas tidak turun
+  runway: number | null; // bulan, null = aman/tidak relevan
 }
 
 export function RangeAnalysis({ series, title }: { series: RangeSeries[]; title?: string }) {
@@ -79,7 +95,7 @@ export function RangeAnalysis({ series, title }: { series: RangeSeries[]; title?
     const m = new Map<string, DailyRow>();
     for (const s of series)
       for (const r of s.daily) {
-        const t = m.get(r.d) ?? { d: r.d, rev: 0, cogs: 0, opex: 0, other: 0, cashIn: 0, cashOut: 0, arNew: 0, arPaid: 0, apNew: 0, apPaid: 0, n: 0 };
+        const t = m.get(r.d) ?? emptyRow(r.d);
         (Object.keys(r) as (keyof DailyRow)[]).forEach((k) => {
           if (k !== "d") (t[k] as number) += r[k] as number;
         });
@@ -87,7 +103,18 @@ export function RangeAnalysis({ series, title }: { series: RangeSeries[]; title?
       }
     return {
       rows: [...m.values()].sort((a, b) => (a.d < b.d ? -1 : 1)),
-      open: series.reduce((o, s) => ({ cash: o.cash + s.openBal.cash, ar: o.ar + s.openBal.ar, ap: o.ap + s.openBal.ap }), { cash: 0, ar: 0, ap: 0 }),
+      open: series.reduce(
+        (o, s) => ({
+          cash: o.cash + s.openBal.cash,
+          ar: o.ar + s.openBal.ar,
+          ap: o.ap + s.openBal.ap,
+          taxIn: o.taxIn + s.openBal.taxIn,
+          taxPay: o.taxPay + s.openBal.taxPay,
+          rpRec: o.rpRec + s.openBal.rpRec,
+          rpPay: o.rpPay + s.openBal.rpPay,
+        }),
+        { cash: 0, ar: 0, ap: 0, taxIn: 0, taxPay: 0, rpRec: 0, rpPay: 0 }
+      ),
       gap: series.reduce((g, s) => ({ net: g.net + (s.gap?.net ?? 0), cash: g.cash + (s.gap?.cash ?? 0) }), { net: 0, cash: 0 }),
     };
   }, [series]);
@@ -97,6 +124,7 @@ export function RangeAnalysis({ series, title }: { series: RangeSeries[]; title?
   const [from, setFrom] = useState(min);
   const [to, setTo] = useState(max);
   const spanDays = from && to ? Math.round((toMs(to) - toMs(from)) / DAY) + 1 : 0;
+  const [view, setView] = useState<"ops" | "cfo">("ops");
   const [iv, setIv] = useState<Interval>(spanDays <= 45 ? "day" : spanDays <= 200 ? "week" : "month");
 
   const preset = (days: number | "all") => {
@@ -122,12 +150,20 @@ export function RangeAnalysis({ series, title }: { series: RangeSeries[]; title?
     let cash = open.cash;
     let ar = open.ar;
     let ap = open.ap;
+    let taxIn = open.taxIn;
+    let taxPay = open.taxPay;
+    let rpRec = open.rpRec;
+    let rpPay = open.rpPay;
     const advance = (untilMs: number, acc?: Bucket, lo?: number) => {
       while (ri < rows.length && toMs(rows[ri].d) <= untilMs) {
         const r = rows[ri++];
         cash += r.cashIn - r.cashOut;
         ar += r.arNew - r.arPaid;
         ap += r.apNew - r.apPaid;
+        taxIn += r.taxIn;
+        taxPay += r.taxPay;
+        rpRec += r.rpRec;
+        rpPay += r.rpPay;
         if (acc && lo !== undefined && toMs(r.d) >= lo) {
           acc.rev += r.rev;
           acc.cost += r.cogs + r.opex;
@@ -138,6 +174,11 @@ export function RangeAnalysis({ series, title }: { series: RangeSeries[]; title?
           acc.arPaid += r.arPaid;
           acc.apNew += r.apNew;
           acc.apPaid += r.apPaid;
+          acc.ebitda += r.rev - r.cogs - r.opex + r.dep;
+          acc.interest += r.int;
+          acc.payroll += r.pay;
+          acc.icRev += r.icRev;
+          acc.icCost += r.icCost;
         }
       }
     };
@@ -147,11 +188,26 @@ export function RangeAnalysis({ series, title }: { series: RangeSeries[]; title?
     while (s <= tMs && guard++ < 800) {
       const lo = Math.max(s, fMs);
       const hi = Math.min(nextStart(s, iv) - DAY, tMs);
-      const b: Bucket = { label: label(lo, hi, iv), rev: 0, cost: 0, net: 0, cashIn: 0, cashOut: 0, arNew: 0, arPaid: 0, apNew: 0, apPaid: 0, cash: 0, ar: 0, ap: 0 };
+      const b: Bucket = { label: label(lo, hi, iv), rev: 0, cost: 0, net: 0, cashIn: 0, cashOut: 0, arNew: 0, arPaid: 0, apNew: 0, apPaid: 0, cash: 0, ar: 0, ap: 0, ebitda: 0, interest: 0, payroll: 0, taxIn: 0, taxPay: 0, rpRec: 0, rpPay: 0, icRev: 0, icCost: 0, burn: null, runway: null };
       advance(hi, b, lo);
       b.cash = cash;
       b.ar = ar;
       b.ap = ap;
+      b.taxIn = taxIn;
+      b.taxPay = taxPay;
+      b.rpRec = rpRec;
+      b.rpPay = rpPay;
+      // burn: kas bersih keluar selama 30 hari sampai akhir interval (atau sejak data pertama bila lebih pendek)
+      const winStart = Math.max(hi - 29 * DAY, toMs(rows[0].d));
+      const winDays = Math.round((hi - winStart) / DAY) + 1;
+      let net30 = 0;
+      for (const r of rows) {
+        const t = toMs(r.d);
+        if (t >= winStart && t <= hi) net30 += r.cashIn - r.cashOut;
+      }
+      const burnM = (-net30 / winDays) * 30;
+      b.burn = burnM > 0 ? burnM : null;
+      b.runway = cash <= 0 ? 0 : burnM > 0 ? cash / burnM : null;
       out.push(b);
       s = nextStart(s, iv);
     }
@@ -163,6 +219,9 @@ export function RangeAnalysis({ series, title }: { series: RangeSeries[]; title?
         rev: sum("rev"), cost: sum("cost"), net: sum("net"), cashIn: sum("cashIn"), cashOut: sum("cashOut"),
         arNew: sum("arNew"), arPaid: sum("arPaid"), apNew: sum("apNew"), apPaid: sum("apPaid"),
         cash: last?.cash ?? 0, ar: last?.ar ?? 0, ap: last?.ap ?? 0,
+        ebitda: sum("ebitda"), interest: sum("interest"), payroll: sum("payroll"), icRev: sum("icRev"), icCost: sum("icCost"),
+        taxIn: last?.taxIn ?? 0, taxPay: last?.taxPay ?? 0, rpRec: last?.rpRec ?? 0, rpPay: last?.rpPay ?? 0,
+        burn: last?.burn ?? null, runway: last?.runway ?? null,
       },
     };
   }, [rows, open, from, to, iv]);
@@ -179,6 +238,8 @@ export function RangeAnalysis({ series, title }: { series: RangeSeries[]; title?
         { l: "Tagihan baru ke pelanggan", v: tot.arNew, sub: `Pelunasan ${short(tot.arPaid)}` },
         { l: "Tagihan baru dari pemasok", v: tot.apNew, sub: `Dibayar ${short(tot.apPaid)}` },
         { l: "Saldo akhir rentang", v: tot.cash, sub: `Piutang ${short(tot.ar)} · Utang ${short(tot.ap)}` },
+        { l: "EBITDA", v: tot.ebitda, t: true, sub: tot.rev ? `Margin ${new Intl.NumberFormat("id-ID", { maximumFractionDigits: 1 }).format((tot.ebitda / tot.rev) * 100)}%` : undefined },
+        { l: "Runway kas (akhir rentang)", v: tot.cash, sub: tot.runway === null ? "Aman, kas tidak turun" : tot.runway === 0 ? `Burn ${short(tot.burn ?? 0)}/bln` : `${new Intl.NumberFormat("id-ID", { maximumFractionDigits: 1 }).format(tot.runway)} bulan · burn ${short(tot.burn ?? 0)}/bln` },
       ]
     : [];
 
@@ -222,7 +283,7 @@ export function RangeAnalysis({ series, title }: { series: RangeSeries[]; title?
             {kpis.map((k) => (
               <div className="card kpi" key={k.l}>
                 <div className="kpi-label">{k.l}</div>
-                <div className={`kpi-value ${k.t ? tone(k.v) : ""}`}>{short(k.v)}</div>
+                <div className={`kpi-value ${k.t || k.l.startsWith("Runway") ? tone(k.v) : ""}`}>{k.l.startsWith("Runway") ? (tot.runway === null ? "Aman" : tot.runway === 0 ? "Kas ≤ 0" : `${new Intl.NumberFormat("id-ID", { maximumFractionDigits: 1 }).format(tot.runway)} bln`) : short(k.v)}</div>
                 {k.sub ? <div className="kpi-sub">{k.sub}</div> : null}
               </div>
             ))}
@@ -237,7 +298,73 @@ export function RangeAnalysis({ series, title }: { series: RangeSeries[]; title?
               <BalanceChart data={buckets.map((b) => ({ month: b.label, kas: b.cash, piutang: b.ar, utang: b.ap }))} />
             </div>
           </div>
-          <div className="card scroll" style={{ marginTop: 16, maxHeight: 460, overflowY: "auto" }}>
+          <div className="seg" style={{ marginTop: 16 }}>
+            <button type="button" data-on={view === "ops"} onClick={() => setView("ops")}>Operasional, piutang & utang</button>
+            <button type="button" data-on={view === "cfo"} onClick={() => setView("cfo")}>Indikator CFO</button>
+          </div>
+          {view === "cfo" ? (
+            <div className="card scroll" style={{ marginTop: 8, maxHeight: 460, overflowY: "auto" }}>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Periode</th>
+                    <th>EBITDA</th>
+                    <th>Margin</th>
+                    <th>Bunga</th>
+                    <th>Gaji</th>
+                    <th>Gaji ÷ pend.</th>
+                    <th>Burn/bln</th>
+                    <th>Runway</th>
+                    <th>Pajak dimuka</th>
+                    <th>Utang pajak</th>
+                    <th>Piutang berelasi</th>
+                    <th>Utang berelasi</th>
+                    <th>Pend. IC</th>
+                    <th>Beban IC</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {buckets.map((b, i) => (
+                    <tr key={i}>
+                      <td>{b.label}</td>
+                      <td className={tone(b.ebitda)}>{rp(b.ebitda)}</td>
+                      <td>{b.rev ? `${new Intl.NumberFormat("id-ID", { maximumFractionDigits: 1 }).format((b.ebitda / b.rev) * 100)}%` : "–"}</td>
+                      <td>{rp(b.interest)}</td>
+                      <td>{rp(b.payroll)}</td>
+                      <td>{b.rev ? `${new Intl.NumberFormat("id-ID", { maximumFractionDigits: 1 }).format((b.payroll / b.rev) * 100)}%` : "–"}</td>
+                      <td>{b.burn === null ? "–" : rp(b.burn)}</td>
+                      <td className={b.runway !== null && b.runway < 3 ? "neg" : ""}>
+                        {b.runway === null ? "Aman" : `${new Intl.NumberFormat("id-ID", { maximumFractionDigits: 1 }).format(b.runway)} bln`}
+                      </td>
+                      <td>{rp(b.taxIn)}</td>
+                      <td>{rp(b.taxPay)}</td>
+                      <td>{rp(b.rpRec)}</td>
+                      <td>{rp(b.rpPay)}</td>
+                      <td>{rp(b.icRev)}</td>
+                      <td>{rp(b.icCost)}</td>
+                    </tr>
+                  ))}
+                  <tr className="total">
+                    <td>Total rentang</td>
+                    <td className={tone(tot.ebitda)}>{rp(tot.ebitda)}</td>
+                    <td>{tot.rev ? `${new Intl.NumberFormat("id-ID", { maximumFractionDigits: 1 }).format((tot.ebitda / tot.rev) * 100)}%` : "–"}</td>
+                    <td>{rp(tot.interest)}</td>
+                    <td>{rp(tot.payroll)}</td>
+                    <td>{tot.rev ? `${new Intl.NumberFormat("id-ID", { maximumFractionDigits: 1 }).format((tot.payroll / tot.rev) * 100)}%` : "–"}</td>
+                    <td>{tot.burn === null ? "–" : rp(tot.burn)}</td>
+                    <td>{tot.runway === null ? "Aman" : `${new Intl.NumberFormat("id-ID", { maximumFractionDigits: 1 }).format(tot.runway)} bln`}</td>
+                    <td>{rp(tot.taxIn)}</td>
+                    <td>{rp(tot.taxPay)}</td>
+                    <td>{rp(tot.rpRec)}</td>
+                    <td>{rp(tot.rpPay)}</td>
+                    <td>{rp(tot.icRev)}</td>
+                    <td>{rp(tot.icCost)}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          ) : (
+          <div className="card scroll" style={{ marginTop: 8, maxHeight: 460, overflowY: "auto" }}>
             <table>
               <thead>
                 <tr>
@@ -292,7 +419,10 @@ export function RangeAnalysis({ series, title }: { series: RangeSeries[]; title?
               </tbody>
             </table>
           </div>
+          )}
           <div className="muted small" style={{ marginTop: 8 }}>
+            Burn dan runway dihitung dari kas bersih 30 hari terakhir sampai akhir tiap interval. EBITDA = laba usaha + penyusutan yang lewat jurnal.
+            Saldo pajak dan pihak berelasi dihitung dari jurnal dan saldo awal TB.{" "}
             Piutang baru = debit piutang usaha, pelunasan = kredit piutang usaha; utang baru = kredit utang usaha, bayar utang = debit utang usaha.
             Kas masuk/keluar tidak menghitung pemindahan antar akun kas.
             {Math.abs(gap.net) > 1000 || Math.abs(gap.cash) > 1000

@@ -7,6 +7,8 @@ import { CashflowChart, HBar, MonthlyChart } from "@/components/Charts";
 import { Delta, Kpi, Section } from "@/components/Ui";
 import { RangeAnalysis } from "@/components/RangeAnalysis";
 import { Matrix } from "@/components/Matrix";
+import { RelatedPanel, TaxPanel } from "@/components/Panels";
+import { runwayOf } from "@/lib/analysis";
 
 export const dynamic = "force-dynamic";
 
@@ -100,6 +102,7 @@ export default async function CompanyPage({ params }: { params: Promise<{ compan
     { label: "Total ekuitas", key: "equity" },
   ];
 
+  const rw = runwayOf(m);
   const failed = m.controls.filter((x) => !x.ok);
   const subs = [
     { name: "Aging piutang (AR) vs TB", s: m.subledger.ar },
@@ -154,6 +157,14 @@ export default async function CompanyPage({ params }: { params: Promise<{ compan
           tone={cur.equity < 0 ? "neg" : "neutral"}
           sub={`Liabilitas ${rpShort(cur.liabilities)}`}
         />
+        {rw ? (
+          <Kpi
+            label="Runway kas"
+            value={rw.state === "aman" ? "Aman" : rw.state === "negatif" ? "Kas negatif" : `${new Intl.NumberFormat("id-ID", { maximumFractionDigits: 1 }).format(rw.months ?? 0)} bulan`}
+            tone={rw.state === "negatif" || (rw.months !== null && rw.months < 3) ? "neg" : "neutral"}
+            sub={rw.burn > 0 ? `Burn ${rpShort(rw.burn)}/bulan (3 bulan terakhir)` : "Kas tidak turun 3 bulan terakhir"}
+          />
+        ) : null}
       </div>
 
       {m.daily && m.openBal ? (
@@ -308,6 +319,17 @@ export default async function CompanyPage({ params }: { params: Promise<{ compan
                 </tbody>
               </table>
             </div>
+          </Section>
+        </>
+      ) : null}
+
+      {isTb && m.cfo ? (
+        <>
+          <Section title="Pajak" hint="Posisi PPN dan PPh, jatuh tempo, dan batas omzet">
+            <TaxPanel m={m} />
+          </Section>
+          <Section title="Pihak berelasi dan antar perusahaan" hint="Saldo dan transaksi dengan entitas grup, pemegang saham">
+            <RelatedPanel m={m} />
           </Section>
         </>
       ) : null}
